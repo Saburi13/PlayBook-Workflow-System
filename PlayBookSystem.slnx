@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="PlayBook.API/PlayBook.API.csproj" />
+  <Project Path="PlayBook.Application/PlayBook.Application.csproj" />
+  <Project Path="PlayBook.Domain/PlayBook.Domain.csproj" />
+  <Project Path="PlayBook.Infrastructure/PlayBook.Infrastructure.csproj" />
+  <Project Path="PlayBook.Tests/PlayBook.Tests.csproj" />
+</Solution>

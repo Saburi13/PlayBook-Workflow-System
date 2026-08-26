@@ -1,0 +1,310 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PlayBook.Application.CRM;
+using PlayBook.Application.Interfaces;
+using PlayBook.Domain;
+
+namespace PlayBook.API.Controllers;
+
+[ApiController]
+[Route("api/crm")]
+public sealed class CrmController(
+    ICrmRepository<EmployeeGrade> grades,
+    ICrmRepository<Employee> employees,
+    ICrmRepository<Customer> customers,
+    ICrmRepository<Product> products,
+    ICrmRepository<Opportunity> opportunities,
+    ICrmRepository<Proposal> proposals,
+    ICrmRepository<ProposalProduct> proposalProducts,
+    ICrmRepository<Order> orders,
+    ICrmRepository<OrderProduct> orderProducts) : ControllerBase
+{
+    [HttpGet("employee-grades")]
+    public async Task<ActionResult<IEnumerable<EmployeeGradeDto>>> GetGrades(CancellationToken cancellationToken) =>
+        Ok(await grades.Query().AsNoTracking().OrderBy(g => g.Name).Select(g => new EmployeeGradeDto(g.Id, g.Name, g.Description, g.ApprovalLimit, g.IsActive)).ToListAsync(cancellationToken));
+
+    [HttpPost("employee-grades")]
+    public async Task<ActionResult<EmployeeGradeDto>> CreateGrade(EmployeeGradeRequest request, CancellationToken cancellationToken)
+    {
+        var entity = new EmployeeGrade { Id = Guid.NewGuid(), Name = request.Name.Trim(), Description = request.Description, ApprovalLimit = request.ApprovalLimit, IsActive = request.IsActive };
+        await grades.AddAsync(entity, cancellationToken);
+        await grades.SaveChangesAsync(cancellationToken);
+        return CreatedAtAction(nameof(GetGrade), new { id = entity.Id }, ToDto(entity));
+    }
+
+    [HttpGet("employee-grades/{id:guid}")]
+    public async Task<ActionResult<EmployeeGradeDto>> GetGrade(Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await grades.GetByIdAsync(id, cancellationToken);
+        return entity is null ? NotFound() : Ok(ToDto(entity));
+    }
+
+    [HttpPut("employee-grades/{id:guid}")]
+    public async Task<IActionResult> UpdateGrade(Guid id, EmployeeGradeRequest request, CancellationToken cancellationToken)
+    {
+        var entity = await grades.GetByIdAsync(id, cancellationToken);
+        if (entity is null) return NotFound();
+        entity.Name = request.Name.Trim(); entity.Description = request.Description; entity.ApprovalLimit = request.ApprovalLimit; entity.IsActive = request.IsActive; entity.UpdatedAt = DateTime.UtcNow;
+        await grades.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+
+    [HttpDelete("employee-grades/{id:guid}")]
+    public async Task<IActionResult> DeleteGrade(Guid id, CancellationToken cancellationToken) => await Delete(grades, id, cancellationToken);
+
+    [HttpGet("employees")]
+    public async Task<ActionResult<IEnumerable<EmployeeDto>>> GetEmployees(CancellationToken cancellationToken) =>
+        Ok(await employees.Query().AsNoTracking().OrderBy(e => e.LastName).ThenBy(e => e.FirstName).Select(e => new EmployeeDto(e.Id, e.FirstName, e.LastName, e.Email, e.Phone, e.EmployeeGradeId, e.ManagerId, e.Role, e.IsActive)).ToListAsync(cancellationToken));
+
+    [HttpPost("employees")]
+    public async Task<ActionResult<EmployeeDto>> CreateEmployee(EmployeeRequest request, CancellationToken cancellationToken)
+    {
+        if (!await ReferencesExist(request.EmployeeGradeId, request.ManagerId, cancellationToken)) return BadRequest("Employee grade or manager does not exist.");
+        var entity = new Employee { Id = Guid.NewGuid(), FirstName = request.FirstName.Trim(), LastName = request.LastName.Trim(), Email = request.Email.Trim().ToLowerInvariant(), Phone = request.Phone, EmployeeGradeId = request.EmployeeGradeId, ManagerId = request.ManagerId, Role = request.Role, IsActive = request.IsActive };
+        await employees.AddAsync(entity, cancellationToken); await employees.SaveChangesAsync(cancellationToken);
+        return CreatedAtAction(nameof(GetEmployee), new { id = entity.Id }, ToDto(entity));
+    }
+
+    [HttpGet("employees/{id:guid}")]
+    public async Task<ActionResult<EmployeeDto>> GetEmployee(Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await employees.GetByIdAsync(id, cancellationToken);
+        return entity is null ? NotFound() : Ok(ToDto(entity));
+    }
+
+    [HttpPut("employees/{id:guid}")]
+    public async Task<IActionResult> UpdateEmployee(Guid id, EmployeeRequest request, CancellationToken cancellationToken)
+    {
+        var entity = await employees.GetByIdAsync(id, cancellationToken);
+        if (entity is null) return NotFound();
+        if (request.ManagerId == id || !await ReferencesExist(request.EmployeeGradeId, request.ManagerId, cancellationToken)) return BadRequest("Employee grade or manager is invalid.");
+        entity.FirstName = request.FirstName.Trim(); entity.LastName = request.LastName.Trim(); entity.Email = request.Email.Trim().ToLowerInvariant(); entity.Phone = request.Phone; entity.EmployeeGradeId = request.EmployeeGradeId; entity.ManagerId = request.ManagerId; entity.Role = request.Role; entity.IsActive = request.IsActive; entity.UpdatedAt = DateTime.UtcNow;
+        await employees.SaveChangesAsync(cancellationToken); return NoContent();
+    }
+
+    [HttpDelete("employees/{id:guid}")]
+    public async Task<IActionResult> DeleteEmployee(Guid id, CancellationToken cancellationToken) => await Delete(employees, id, cancellationToken);
+
+    [HttpGet("customers")]
+    public async Task<ActionResult<IEnumerable<CustomerDto>>> GetCustomers(CancellationToken cancellationToken) =>
+        Ok(await customers.Query().AsNoTracking().OrderBy(c => c.Name).Select(c => new CustomerDto(c.Id, c.Name, c.Email, c.Phone, c.Company, c.Address, c.Status)).ToListAsync(cancellationToken));
+
+    [HttpPost("customers")]
+    public async Task<ActionResult<CustomerDto>> CreateCustomer(CustomerRequest request, CancellationToken cancellationToken)
+    {
+        var entity = new Customer { Id = Guid.NewGuid(), Name = request.Name.Trim(), Email = request.Email, Phone = request.Phone, Company = request.Company, Address = request.Address, Status = request.Status };
+        await customers.AddAsync(entity, cancellationToken); await customers.SaveChangesAsync(cancellationToken);
+        return CreatedAtAction(nameof(GetCustomer), new { id = entity.Id }, ToDto(entity));
+    }
+
+    [HttpGet("customers/{id:guid}")]
+    public async Task<ActionResult<CustomerDto>> GetCustomer(Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await customers.GetByIdAsync(id, cancellationToken); return entity is null ? NotFound() : Ok(ToDto(entity));
+    }
+
+    [HttpPut("customers/{id:guid}")]
+    public async Task<IActionResult> UpdateCustomer(Guid id, CustomerRequest request, CancellationToken cancellationToken)
+    {
+        var entity = await customers.GetByIdAsync(id, cancellationToken); if (entity is null) return NotFound();
+        entity.Name = request.Name.Trim(); entity.Email = request.Email; entity.Phone = request.Phone; entity.Company = request.Company; entity.Address = request.Address; entity.Status = request.Status; entity.UpdatedAt = DateTime.UtcNow;
+        await customers.SaveChangesAsync(cancellationToken); return NoContent();
+    }
+
+    [HttpDelete("customers/{id:guid}")]
+    public async Task<IActionResult> DeleteCustomer(Guid id, CancellationToken cancellationToken) => await Delete(customers, id, cancellationToken);
+
+    [HttpGet("products")]
+    public async Task<ActionResult<IEnumerable<ProductDto>>> GetProducts(CancellationToken cancellationToken) =>
+        Ok(await products.Query().AsNoTracking().OrderBy(p => p.Name).Select(p => new ProductDto(p.Id, p.Name, p.Description, p.Category, p.Price, p.IsActive)).ToListAsync(cancellationToken));
+
+    [HttpPost("products")]
+    public async Task<ActionResult<ProductDto>> CreateProduct(ProductRequest request, CancellationToken cancellationToken)
+    {
+        var entity = new Product { Id = Guid.NewGuid(), Name = request.Name.Trim(), Description = request.Description, Category = request.Category, Price = request.Price, IsActive = request.IsActive };
+        await products.AddAsync(entity, cancellationToken); await products.SaveChangesAsync(cancellationToken);
+        return CreatedAtAction(nameof(GetProduct), new { id = entity.Id }, ToDto(entity));
+    }
+
+    [HttpGet("products/{id:guid}")]
+    public async Task<ActionResult<ProductDto>> GetProduct(Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await products.GetByIdAsync(id, cancellationToken); return entity is null ? NotFound() : Ok(ToDto(entity));
+    }
+
+    [HttpPut("products/{id:guid}")]
+    public async Task<IActionResult> UpdateProduct(Guid id, ProductRequest request, CancellationToken cancellationToken)
+    {
+        var entity = await products.GetByIdAsync(id, cancellationToken); if (entity is null) return NotFound();
+        entity.Name = request.Name.Trim(); entity.Description = request.Description; entity.Category = request.Category; entity.Price = request.Price; entity.IsActive = request.IsActive; entity.UpdatedAt = DateTime.UtcNow;
+        await products.SaveChangesAsync(cancellationToken); return NoContent();
+    }
+
+    [HttpDelete("products/{id:guid}")]
+    public async Task<IActionResult> DeleteProduct(Guid id, CancellationToken cancellationToken) => await Delete(products, id, cancellationToken);
+
+    [HttpGet("opportunities")]
+    public async Task<ActionResult<IEnumerable<OpportunityDto>>> GetOpportunities(CancellationToken cancellationToken) =>
+        Ok(await opportunities.Query().AsNoTracking().OrderByDescending(o => o.CreatedAt).Select(o => new OpportunityDto(o.Id, o.CustomerId, o.AssignedEmployeeId, o.Name, o.Description, o.EstimatedValue, o.Status, o.ExpectedCloseDate)).ToListAsync(cancellationToken));
+
+    [HttpPost("opportunities")]
+    public async Task<ActionResult<OpportunityDto>> CreateOpportunity(OpportunityRequest request, CancellationToken cancellationToken)
+    {
+        if (!await customers.Query().AnyAsync(c => c.Id == request.CustomerId, cancellationToken) || request.AssignedEmployeeId is not null && !await employees.Query().AnyAsync(e => e.Id == request.AssignedEmployeeId, cancellationToken)) return BadRequest("Customer or assigned employee does not exist.");
+        var entity = new Opportunity { Id = Guid.NewGuid(), CustomerId = request.CustomerId, AssignedEmployeeId = request.AssignedEmployeeId, Name = request.Name.Trim(), Description = request.Description, EstimatedValue = request.EstimatedValue, Status = request.Status, ExpectedCloseDate = request.ExpectedCloseDate };
+        await opportunities.AddAsync(entity, cancellationToken); await opportunities.SaveChangesAsync(cancellationToken); return CreatedAtAction(nameof(GetOpportunity), new { id = entity.Id }, ToDto(entity));
+    }
+
+    [HttpGet("opportunities/{id:guid}")]
+    public async Task<ActionResult<OpportunityDto>> GetOpportunity(Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await opportunities.GetByIdAsync(id, cancellationToken); return entity is null ? NotFound() : Ok(ToDto(entity));
+    }
+
+    [HttpPut("opportunities/{id:guid}")]
+    public async Task<IActionResult> UpdateOpportunity(Guid id, OpportunityRequest request, CancellationToken cancellationToken)
+    {
+        var entity = await opportunities.GetByIdAsync(id, cancellationToken); if (entity is null) return NotFound();
+        if (!await customers.Query().AnyAsync(c => c.Id == request.CustomerId, cancellationToken) || request.AssignedEmployeeId is not null && !await employees.Query().AnyAsync(e => e.Id == request.AssignedEmployeeId, cancellationToken)) return BadRequest("Customer or assigned employee does not exist.");
+        entity.CustomerId = request.CustomerId; entity.AssignedEmployeeId = request.AssignedEmployeeId; entity.Name = request.Name.Trim(); entity.Description = request.Description; entity.EstimatedValue = request.EstimatedValue; entity.Status = request.Status; entity.ExpectedCloseDate = request.ExpectedCloseDate; entity.UpdatedAt = DateTime.UtcNow;
+        await opportunities.SaveChangesAsync(cancellationToken); return NoContent();
+    }
+
+    [HttpDelete("opportunities/{id:guid}")]
+    public async Task<IActionResult> DeleteOpportunity(Guid id, CancellationToken cancellationToken) => await Delete(opportunities, id, cancellationToken);
+
+    [HttpGet("proposals")]
+    public async Task<ActionResult<IEnumerable<ProposalDto>>> GetProposals(CancellationToken cancellationToken) =>
+        Ok(await proposals.Query().AsNoTracking().OrderByDescending(p => p.CreatedAt).Select(p => new ProposalDto(p.Id, p.OpportunityId, p.CustomerId, p.CreatedByEmployeeId, p.ProposalNumber, p.Status, p.SubTotal, p.DiscountPercentage, p.DiscountAmount, p.TotalAmount, p.ValidUntil)).ToListAsync(cancellationToken));
+
+    [HttpPost("proposals")]
+    public async Task<ActionResult<ProposalDto>> CreateProposal(ProposalRequest request, CancellationToken cancellationToken)
+    {
+        if (!await opportunities.Query().AnyAsync(o => o.Id == request.OpportunityId && o.CustomerId == request.CustomerId, cancellationToken) || !await employees.Query().AnyAsync(e => e.Id == request.CreatedByEmployeeId, cancellationToken)) return BadRequest("Opportunity, customer, or employee relationship is invalid.");
+        var entity = new Proposal { Id = Guid.NewGuid(), OpportunityId = request.OpportunityId, CustomerId = request.CustomerId, CreatedByEmployeeId = request.CreatedByEmployeeId, ProposalNumber = request.ProposalNumber.Trim(), Status = request.Status, SubTotal = request.SubTotal, DiscountPercentage = request.DiscountPercentage, DiscountAmount = request.DiscountAmount, TotalAmount = request.TotalAmount, ValidUntil = request.ValidUntil };
+        await proposals.AddAsync(entity, cancellationToken); await proposals.SaveChangesAsync(cancellationToken); return CreatedAtAction(nameof(GetProposal), new { id = entity.Id }, ToDto(entity));
+    }
+
+    [HttpGet("proposals/{id:guid}")]
+    public async Task<ActionResult<ProposalDto>> GetProposal(Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await proposals.GetByIdAsync(id, cancellationToken); return entity is null ? NotFound() : Ok(ToDto(entity));
+    }
+
+    [HttpPut("proposals/{id:guid}")]
+    public async Task<IActionResult> UpdateProposal(Guid id, ProposalRequest request, CancellationToken cancellationToken)
+    {
+        var entity = await proposals.GetByIdAsync(id, cancellationToken); if (entity is null) return NotFound();
+        if (!await opportunities.Query().AnyAsync(o => o.Id == request.OpportunityId && o.CustomerId == request.CustomerId, cancellationToken) || !await employees.Query().AnyAsync(e => e.Id == request.CreatedByEmployeeId, cancellationToken)) return BadRequest("Opportunity, customer, or employee relationship is invalid.");
+        entity.OpportunityId = request.OpportunityId; entity.CustomerId = request.CustomerId; entity.CreatedByEmployeeId = request.CreatedByEmployeeId; entity.ProposalNumber = request.ProposalNumber.Trim(); entity.Status = request.Status; entity.SubTotal = request.SubTotal; entity.DiscountPercentage = request.DiscountPercentage; entity.DiscountAmount = request.DiscountAmount; entity.TotalAmount = request.TotalAmount; entity.ValidUntil = request.ValidUntil; entity.UpdatedAt = DateTime.UtcNow;
+        await proposals.SaveChangesAsync(cancellationToken); return NoContent();
+    }
+
+    [HttpDelete("proposals/{id:guid}")]
+    public async Task<IActionResult> DeleteProposal(Guid id, CancellationToken cancellationToken) => await Delete(proposals, id, cancellationToken);
+
+    [HttpGet("proposals/{proposalId:guid}/products")]
+    public async Task<ActionResult<IEnumerable<ProposalProductDto>>> GetProposalProducts(Guid proposalId, CancellationToken cancellationToken) =>
+        Ok(await proposalProducts.Query().AsNoTracking().Where(p => p.ProposalId == proposalId).Select(p => new ProposalProductDto(p.Id, p.ProposalId, p.ProductId, p.Quantity, p.UnitPrice, p.DiscountPercentage, p.DiscountAmount, p.TotalPrice)).ToListAsync(cancellationToken));
+
+    [HttpPost("proposals/{proposalId:guid}/products")]
+    public async Task<ActionResult<ProposalProductDto>> AddProposalProduct(Guid proposalId, ProposalProductRequest request, CancellationToken cancellationToken)
+    {
+        if (!await proposals.Query().AnyAsync(p => p.Id == proposalId, cancellationToken) || !await products.Query().AnyAsync(p => p.Id == request.ProductId && p.IsActive, cancellationToken)) return BadRequest("Proposal or active product does not exist.");
+        var entity = new ProposalProduct { Id = Guid.NewGuid(), ProposalId = proposalId, ProductId = request.ProductId, Quantity = request.Quantity, UnitPrice = request.UnitPrice, DiscountPercentage = request.DiscountPercentage, DiscountAmount = request.DiscountAmount, TotalPrice = request.TotalPrice };
+        await proposalProducts.AddAsync(entity, cancellationToken); await proposalProducts.SaveChangesAsync(cancellationToken); return Ok(ToDto(entity));
+    }
+
+    [HttpPut("proposals/{proposalId:guid}/products/{id:guid}")]
+    public async Task<IActionResult> UpdateProposalProduct(Guid proposalId, Guid id, ProposalProductRequest request, CancellationToken cancellationToken)
+    {
+        var entity = await proposalProducts.GetByIdAsync(id, cancellationToken); if (entity is null || entity.ProposalId != proposalId) return NotFound();
+        entity.ProductId = request.ProductId; entity.Quantity = request.Quantity; entity.UnitPrice = request.UnitPrice; entity.DiscountPercentage = request.DiscountPercentage; entity.DiscountAmount = request.DiscountAmount; entity.TotalPrice = request.TotalPrice; entity.UpdatedAt = DateTime.UtcNow;
+        await proposalProducts.SaveChangesAsync(cancellationToken); return NoContent();
+    }
+
+    [HttpDelete("proposals/{proposalId:guid}/products/{id:guid}")]
+    public async Task<IActionResult> DeleteProposalProduct(Guid proposalId, Guid id, CancellationToken cancellationToken) => await DeleteLine(proposalProducts, id, proposalId, cancellationToken);
+
+    [HttpGet("orders")]
+    public async Task<ActionResult<IEnumerable<OrderDto>>> GetOrders(CancellationToken cancellationToken) =>
+        Ok(await orders.Query().AsNoTracking().OrderByDescending(o => o.OrderDate).Select(o => new OrderDto(o.Id, o.ProposalId, o.CustomerId, o.AssignedEmployeeId, o.OrderNumber, o.Status, o.TotalAmount, o.OrderDate)).ToListAsync(cancellationToken));
+
+    [HttpPost("orders")]
+    public async Task<ActionResult<OrderDto>> CreateOrder(OrderRequest request, CancellationToken cancellationToken)
+    {
+        if (!await proposals.Query().AnyAsync(p => p.Id == request.ProposalId && p.CustomerId == request.CustomerId, cancellationToken) || !await customers.Query().AnyAsync(c => c.Id == request.CustomerId, cancellationToken)) return BadRequest("Proposal and customer relationship is invalid.");
+        var entity = new Order { Id = Guid.NewGuid(), ProposalId = request.ProposalId, CustomerId = request.CustomerId, AssignedEmployeeId = request.AssignedEmployeeId, OrderNumber = request.OrderNumber.Trim(), Status = request.Status, TotalAmount = request.TotalAmount, OrderDate = request.OrderDate };
+        await orders.AddAsync(entity, cancellationToken); await orders.SaveChangesAsync(cancellationToken); return CreatedAtAction(nameof(GetOrder), new { id = entity.Id }, ToDto(entity));
+    }
+
+    [HttpGet("orders/{id:guid}")]
+    public async Task<ActionResult<OrderDto>> GetOrder(Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await orders.GetByIdAsync(id, cancellationToken); return entity is null ? NotFound() : Ok(ToDto(entity));
+    }
+
+    [HttpPut("orders/{id:guid}")]
+    public async Task<IActionResult> UpdateOrder(Guid id, OrderRequest request, CancellationToken cancellationToken)
+    {
+        var entity = await orders.GetByIdAsync(id, cancellationToken); if (entity is null) return NotFound();
+        if (!await proposals.Query().AnyAsync(p => p.Id == request.ProposalId && p.CustomerId == request.CustomerId, cancellationToken)) return BadRequest("Proposal and customer relationship is invalid.");
+        entity.ProposalId = request.ProposalId; entity.CustomerId = request.CustomerId; entity.AssignedEmployeeId = request.AssignedEmployeeId; entity.OrderNumber = request.OrderNumber.Trim(); entity.Status = request.Status; entity.TotalAmount = request.TotalAmount; entity.OrderDate = request.OrderDate; entity.UpdatedAt = DateTime.UtcNow;
+        await orders.SaveChangesAsync(cancellationToken); return NoContent();
+    }
+
+    [HttpDelete("orders/{id:guid}")]
+    public async Task<IActionResult> DeleteOrder(Guid id, CancellationToken cancellationToken) => await Delete(orders, id, cancellationToken);
+
+    [HttpGet("orders/{orderId:guid}/products")]
+    public async Task<ActionResult<IEnumerable<OrderProductDto>>> GetOrderProducts(Guid orderId, CancellationToken cancellationToken) =>
+        Ok(await orderProducts.Query().AsNoTracking().Where(p => p.OrderId == orderId).Select(p => new OrderProductDto(p.Id, p.OrderId, p.ProductId, p.Quantity, p.UnitPrice, p.Discount, p.TotalPrice)).ToListAsync(cancellationToken));
+
+    [HttpPost("orders/{orderId:guid}/products")]
+    public async Task<ActionResult<OrderProductDto>> AddOrderProduct(Guid orderId, OrderProductRequest request, CancellationToken cancellationToken)
+    {
+        if (!await orders.Query().AnyAsync(o => o.Id == orderId, cancellationToken) || !await products.Query().AnyAsync(p => p.Id == request.ProductId && p.IsActive, cancellationToken)) return BadRequest("Order or active product does not exist.");
+        var entity = new OrderProduct { Id = Guid.NewGuid(), OrderId = orderId, ProductId = request.ProductId, Quantity = request.Quantity, UnitPrice = request.UnitPrice, Discount = request.Discount, TotalPrice = request.TotalPrice };
+        await orderProducts.AddAsync(entity, cancellationToken); await orderProducts.SaveChangesAsync(cancellationToken); return Ok(ToDto(entity));
+    }
+
+    [HttpPut("orders/{orderId:guid}/products/{id:guid}")]
+    public async Task<IActionResult> UpdateOrderProduct(Guid orderId, Guid id, OrderProductRequest request, CancellationToken cancellationToken)
+    {
+        var entity = await orderProducts.GetByIdAsync(id, cancellationToken); if (entity is null || entity.OrderId != orderId) return NotFound();
+        entity.ProductId = request.ProductId; entity.Quantity = request.Quantity; entity.UnitPrice = request.UnitPrice; entity.Discount = request.Discount; entity.TotalPrice = request.TotalPrice; entity.UpdatedAt = DateTime.UtcNow;
+        await orderProducts.SaveChangesAsync(cancellationToken); return NoContent();
+    }
+
+    [HttpDelete("orders/{orderId:guid}/products/{id:guid}")]
+    public async Task<IActionResult> DeleteOrderProduct(Guid orderId, Guid id, CancellationToken cancellationToken) => await DeleteLine(orderProducts, id, orderId, cancellationToken);
+
+    private async Task<bool> ReferencesExist(Guid? gradeId, Guid? managerId, CancellationToken cancellationToken) =>
+        (gradeId is null || await grades.Query().AnyAsync(g => g.Id == gradeId, cancellationToken)) &&
+        (managerId is null || await employees.Query().AnyAsync(e => e.Id == managerId, cancellationToken));
+
+    private static async Task<IActionResult> Delete<TEntity>(ICrmRepository<TEntity> repository, Guid id, CancellationToken cancellationToken) where TEntity : class
+    {
+        var entity = await repository.GetByIdAsync(id, cancellationToken); if (entity is null) return new NotFoundResult();
+        repository.Remove(entity); await repository.SaveChangesAsync(cancellationToken); return new NoContentResult();
+    }
+
+    private static async Task<IActionResult> DeleteLine<TEntity>(ICrmRepository<TEntity> repository, Guid id, Guid parentId, CancellationToken cancellationToken) where TEntity : class
+    {
+        var entity = await repository.GetByIdAsync(id, cancellationToken); if (entity is null) return new NotFoundResult();
+        var parentProperty = typeof(TEntity) == typeof(ProposalProduct) ? nameof(ProposalProduct.ProposalId) : nameof(OrderProduct.OrderId);
+        var actualParentId = (Guid)typeof(TEntity).GetProperty(parentProperty)!.GetValue(entity)!;
+        if (actualParentId != parentId) return new NotFoundResult();
+        repository.Remove(entity); await repository.SaveChangesAsync(cancellationToken); return new NoContentResult();
+    }
+
+    private static EmployeeGradeDto ToDto(EmployeeGrade e) => new(e.Id, e.Name, e.Description, e.ApprovalLimit, e.IsActive);
+    private static EmployeeDto ToDto(Employee e) => new(e.Id, e.FirstName, e.LastName, e.Email, e.Phone, e.EmployeeGradeId, e.ManagerId, e.Role, e.IsActive);
+    private static CustomerDto ToDto(Customer e) => new(e.Id, e.Name, e.Email, e.Phone, e.Company, e.Address, e.Status);
+    private static ProductDto ToDto(Product e) => new(e.Id, e.Name, e.Description, e.Category, e.Price, e.IsActive);
+    private static OpportunityDto ToDto(Opportunity e) => new(e.Id, e.CustomerId, e.AssignedEmployeeId, e.Name, e.Description, e.EstimatedValue, e.Status, e.ExpectedCloseDate);
+    private static ProposalDto ToDto(Proposal e) => new(e.Id, e.OpportunityId, e.CustomerId, e.CreatedByEmployeeId, e.ProposalNumber, e.Status, e.SubTotal, e.DiscountPercentage, e.DiscountAmount, e.TotalAmount, e.ValidUntil);
+    private static ProposalProductDto ToDto(ProposalProduct e) => new(e.Id, e.ProposalId, e.ProductId, e.Quantity, e.UnitPrice, e.DiscountPercentage, e.DiscountAmount, e.TotalPrice);
+    private static OrderDto ToDto(Order e) => new(e.Id, e.ProposalId, e.CustomerId, e.AssignedEmployeeId, e.OrderNumber, e.Status, e.TotalAmount, e.OrderDate);
+    private static OrderProductDto ToDto(OrderProduct e) => new(e.Id, e.OrderId, e.ProductId, e.Quantity, e.UnitPrice, e.Discount, e.TotalPrice);
+}
