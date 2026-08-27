@@ -19,6 +19,7 @@ public sealed record ApprovalDecisionRequest(Guid ApproverEmployeeId, ApprovalSt
 public interface IApprovalService
 {
     Task<ApprovalDto> RequestAsync(Guid proposalId, Guid? workflowExecutionId = null, CancellationToken cancellationToken = default);
+    Task<ApprovalDto> ResubmitAsync(Guid proposalId, Guid? workflowExecutionId = null, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ApprovalDto>> GetForProposalAsync(Guid proposalId, CancellationToken cancellationToken = default);
     Task<ApprovalDto> DecideAsync(Guid approvalId, ApprovalDecisionRequest request, CancellationToken cancellationToken = default);
 }

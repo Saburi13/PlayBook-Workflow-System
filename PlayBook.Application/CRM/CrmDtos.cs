@@ -12,6 +12,9 @@ public sealed record ProposalDto(Guid Id, Guid OpportunityId, Guid CustomerId, G
 public sealed record ProposalProductDto(Guid Id, Guid ProposalId, Guid ProductId, int Quantity, decimal UnitPrice, decimal DiscountPercentage, decimal DiscountAmount, decimal TotalPrice);
 public sealed record OrderDto(Guid Id, Guid ProposalId, Guid CustomerId, Guid? AssignedEmployeeId, string OrderNumber, OrderStatus Status, decimal TotalAmount, DateTime OrderDate);
 public sealed record OrderProductDto(Guid Id, Guid OrderId, Guid ProductId, int Quantity, decimal UnitPrice, decimal Discount, decimal TotalPrice);
+public sealed record SubscriptionDto(Guid Id, Guid CustomerId, Guid ProductId, DateTime StartDate, DateTime EndDate, decimal Amount, SubscriptionStatus Status);
+public sealed record EngagementActivityDto(Guid Id, Guid CustomerId, Guid? EmployeeId, Guid? OpportunityId, Guid? ProposalId, string Type, string? Subject, string? Description, DateTime ActivityDate);
+public sealed record ConversationDto(Guid Id, Guid CustomerId, Guid? EmployeeId, Guid? OpportunityId, string Message, string Channel, DateTime CreatedAt);
 
 public sealed class EmployeeGradeRequest
 {
@@ -105,4 +108,25 @@ public sealed class OrderProductRequest
     [Range(0, 999999999)] public decimal UnitPrice { get; set; }
     [Range(0, 999999999)] public decimal Discount { get; set; }
     [Range(0, 999999999)] public decimal TotalPrice { get; set; }
+}
+
+public sealed class EngagementActivityRequest
+{
+    [Required] public Guid CustomerId { get; set; }
+    public Guid? EmployeeId { get; set; }
+    public Guid? OpportunityId { get; set; }
+    public Guid? ProposalId { get; set; }
+    [Required, MaxLength(100)] public string Type { get; set; } = string.Empty;
+    [MaxLength(200)] public string? Subject { get; set; }
+    [MaxLength(4000)] public string? Description { get; set; }
+    public DateTime ActivityDate { get; set; } = DateTime.UtcNow;
+}
+
+public sealed class ConversationRequest
+{
+    [Required] public Guid CustomerId { get; set; }
+    public Guid? EmployeeId { get; set; }
+    public Guid? OpportunityId { get; set; }
+    [Required, MaxLength(4000)] public string Message { get; set; } = string.Empty;
+    [Required, MaxLength(50)] public string Channel { get; set; } = "Internal";
 }

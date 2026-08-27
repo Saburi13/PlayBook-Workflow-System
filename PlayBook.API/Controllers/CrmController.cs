@@ -1,14 +1,18 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using PlayBook.Application.CRM;
 using PlayBook.Application.Interfaces;
 using PlayBook.Domain;
+using PlayBook.Infrastructure.Data;
+using PlayBook.Application.Workflows;
 
 namespace PlayBook.API.Controllers;
 
 [ApiController]
 [Route("api/crm")]
 public sealed class CrmController(
+    PlayBookDbContext dbContext,
     ICrmRepository<EmployeeGrade> grades,
     ICrmRepository<Employee> employees,
     ICrmRepository<Customer> customers,
@@ -17,7 +21,8 @@ public sealed class CrmController(
     ICrmRepository<Proposal> proposals,
     ICrmRepository<ProposalProduct> proposalProducts,
     ICrmRepository<Order> orders,
-    ICrmRepository<OrderProduct> orderProducts) : ControllerBase
+    ICrmRepository<OrderProduct> orderProducts,
+    IWorkflowExecutionService workflowExecutionService) : ControllerBase
 {
     [HttpGet("employee-grades")]
     public async Task<ActionResult<IEnumerable<EmployeeGradeDto>>> GetGrades(CancellationToken cancellationToken) =>
@@ -152,7 +157,9 @@ public sealed class CrmController(
     {
         if (!await customers.Query().AnyAsync(c => c.Id == request.CustomerId, cancellationToken) || request.AssignedEmployeeId is not null && !await employees.Query().AnyAsync(e => e.Id == request.AssignedEmployeeId, cancellationToken)) return BadRequest("Customer or assigned employee does not exist.");
         var entity = new Opportunity { Id = Guid.NewGuid(), CustomerId = request.CustomerId, AssignedEmployeeId = request.AssignedEmployeeId, Name = request.Name.Trim(), Description = request.Description, EstimatedValue = request.EstimatedValue, Status = request.Status, ExpectedCloseDate = request.ExpectedCloseDate };
-        await opportunities.AddAsync(entity, cancellationToken); await opportunities.SaveChangesAsync(cancellationToken); return CreatedAtAction(nameof(GetOpportunity), new { id = entity.Id }, ToDto(entity));
+        await opportunities.AddAsync(entity, cancellationToken); await opportunities.SaveChangesAsync(cancellationToken);
+        await workflowExecutionService.TriggerAsync("Opportunity Created", "Opportunity", entity.Id, JsonSerializer.SerializeToElement(new { discountPercentage = 10m }), cancellationToken);
+        return CreatedAtAction(nameof(GetOpportunity), new { id = entity.Id }, ToDto(entity));
     }
 
     [HttpGet("opportunities/{id:guid}")]
@@ -182,7 +189,9 @@ public sealed class CrmController(
     {
         if (!await opportunities.Query().AnyAsync(o => o.Id == request.OpportunityId && o.CustomerId == request.CustomerId, cancellationToken) || !await employees.Query().AnyAsync(e => e.Id == request.CreatedByEmployeeId, cancellationToken)) return BadRequest("Opportunity, customer, or employee relationship is invalid.");
         var entity = new Proposal { Id = Guid.NewGuid(), OpportunityId = request.OpportunityId, CustomerId = request.CustomerId, CreatedByEmployeeId = request.CreatedByEmployeeId, ProposalNumber = request.ProposalNumber.Trim(), Status = request.Status, SubTotal = request.SubTotal, DiscountPercentage = request.DiscountPercentage, DiscountAmount = request.DiscountAmount, TotalAmount = request.TotalAmount, ValidUntil = request.ValidUntil };
-        await proposals.AddAsync(entity, cancellationToken); await proposals.SaveChangesAsync(cancellationToken); return CreatedAtAction(nameof(GetProposal), new { id = entity.Id }, ToDto(entity));
+        await proposals.AddAsync(entity, cancellationToken); await proposals.SaveChangesAsync(cancellationToken);
+        await workflowExecutionService.TriggerAsync("Proposal Created", "Proposal", entity.Id, null, cancellationToken);
+        return CreatedAtAction(nameof(GetProposal), new { id = entity.Id }, ToDto(entity));
     }
 
     [HttpGet("proposals/{id:guid}")]
@@ -260,6 +269,46 @@ public sealed class CrmController(
     public async Task<ActionResult<IEnumerable<OrderProductDto>>> GetOrderProducts(Guid orderId, CancellationToken cancellationToken) =>
         Ok(await orderProducts.Query().AsNoTracking().Where(p => p.OrderId == orderId).Select(p => new OrderProductDto(p.Id, p.OrderId, p.ProductId, p.Quantity, p.UnitPrice, p.Discount, p.TotalPrice)).ToListAsync(cancellationToken));
 
+    [HttpGet("subscriptions")]
+    public async Task<ActionResult<IEnumerable<SubscriptionDto>>> GetSubscriptions(CancellationToken cancellationToken) =>
+        Ok(await dbContext.Subscriptions.AsNoTracking().OrderByDescending(s => s.StartDate).Select(s => new SubscriptionDto(s.Id, s.CustomerId, s.ProductId, s.StartDate, s.EndDate, s.Amount, s.Status)).ToListAsync(cancellationToken));
+
+    [HttpGet("activities")]
+    public async Task<ActionResult<IEnumerable<EngagementActivityDto>>> GetActivities(Guid? customerId, Guid? opportunityId, CancellationToken cancellationToken) =>
+        Ok(await dbContext.EngagementActivities.AsNoTracking()
+            .Where(activity => (!customerId.HasValue || activity.CustomerId == customerId) && (!opportunityId.HasValue || activity.OpportunityId == opportunityId))
+            .OrderByDescending(activity => activity.ActivityDate)
+            .Select(activity => new EngagementActivityDto(activity.Id, activity.CustomerId, activity.EmployeeId, activity.OpportunityId, activity.ProposalId, activity.Type, activity.Subject, activity.Description, activity.ActivityDate))
+            .ToListAsync(cancellationToken));
+
+    [HttpPost("activities")]
+    public async Task<ActionResult<EngagementActivityDto>> CreateActivity(EngagementActivityRequest request, CancellationToken cancellationToken)
+    {
+        if (!await EntityReferencesExist(request.CustomerId, request.EmployeeId, request.OpportunityId, request.ProposalId, cancellationToken)) return BadRequest("One or more CRM references do not exist.");
+        var activity = new EngagementActivity { Id = Guid.NewGuid(), CustomerId = request.CustomerId, EmployeeId = request.EmployeeId, OpportunityId = request.OpportunityId, ProposalId = request.ProposalId, Type = request.Type.Trim(), Subject = request.Subject?.Trim(), Description = request.Description?.Trim(), ActivityDate = request.ActivityDate };
+        dbContext.EngagementActivities.Add(activity);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return CreatedAtAction(nameof(GetActivities), new { customerId = activity.CustomerId }, ToDto(activity));
+    }
+
+    [HttpGet("conversations")]
+    public async Task<ActionResult<IEnumerable<ConversationDto>>> GetConversations(Guid? customerId, Guid? opportunityId, CancellationToken cancellationToken) =>
+        Ok(await dbContext.Conversations.AsNoTracking()
+            .Where(conversation => (!customerId.HasValue || conversation.CustomerId == customerId) && (!opportunityId.HasValue || conversation.OpportunityId == opportunityId))
+            .OrderByDescending(conversation => conversation.CreatedAt)
+            .Select(conversation => new ConversationDto(conversation.Id, conversation.CustomerId, conversation.EmployeeId, conversation.OpportunityId, conversation.Message, conversation.Channel, conversation.CreatedAt))
+            .ToListAsync(cancellationToken));
+
+    [HttpPost("conversations")]
+    public async Task<ActionResult<ConversationDto>> CreateConversation(ConversationRequest request, CancellationToken cancellationToken)
+    {
+        if (!await EntityReferencesExist(request.CustomerId, request.EmployeeId, request.OpportunityId, null, cancellationToken)) return BadRequest("One or more CRM references do not exist.");
+        var conversation = new Conversation { Id = Guid.NewGuid(), CustomerId = request.CustomerId, EmployeeId = request.EmployeeId, OpportunityId = request.OpportunityId, Message = request.Message.Trim(), Channel = request.Channel.Trim() };
+        dbContext.Conversations.Add(conversation);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return CreatedAtAction(nameof(GetConversations), new { customerId = conversation.CustomerId }, ToDto(conversation));
+    }
+
     [HttpPost("orders/{orderId:guid}/products")]
     public async Task<ActionResult<OrderProductDto>> AddOrderProduct(Guid orderId, OrderProductRequest request, CancellationToken cancellationToken)
     {
@@ -282,6 +331,12 @@ public sealed class CrmController(
     private async Task<bool> ReferencesExist(Guid? gradeId, Guid? managerId, CancellationToken cancellationToken) =>
         (gradeId is null || await grades.Query().AnyAsync(g => g.Id == gradeId, cancellationToken)) &&
         (managerId is null || await employees.Query().AnyAsync(e => e.Id == managerId, cancellationToken));
+
+    private async Task<bool> EntityReferencesExist(Guid customerId, Guid? employeeId, Guid? opportunityId, Guid? proposalId, CancellationToken cancellationToken) =>
+        await customers.Query().AnyAsync(customer => customer.Id == customerId, cancellationToken) &&
+        (employeeId is null || await employees.Query().AnyAsync(employee => employee.Id == employeeId, cancellationToken)) &&
+        (opportunityId is null || await opportunities.Query().AnyAsync(opportunity => opportunity.Id == opportunityId && opportunity.CustomerId == customerId, cancellationToken)) &&
+        (proposalId is null || await proposals.Query().AnyAsync(proposal => proposal.Id == proposalId && proposal.CustomerId == customerId, cancellationToken));
 
     private static async Task<IActionResult> Delete<TEntity>(ICrmRepository<TEntity> repository, Guid id, CancellationToken cancellationToken) where TEntity : class
     {
@@ -307,4 +362,6 @@ public sealed class CrmController(
     private static ProposalProductDto ToDto(ProposalProduct e) => new(e.Id, e.ProposalId, e.ProductId, e.Quantity, e.UnitPrice, e.DiscountPercentage, e.DiscountAmount, e.TotalPrice);
     private static OrderDto ToDto(Order e) => new(e.Id, e.ProposalId, e.CustomerId, e.AssignedEmployeeId, e.OrderNumber, e.Status, e.TotalAmount, e.OrderDate);
     private static OrderProductDto ToDto(OrderProduct e) => new(e.Id, e.OrderId, e.ProductId, e.Quantity, e.UnitPrice, e.Discount, e.TotalPrice);
+    private static EngagementActivityDto ToDto(EngagementActivity e) => new(e.Id, e.CustomerId, e.EmployeeId, e.OpportunityId, e.ProposalId, e.Type, e.Subject, e.Description, e.ActivityDate);
+    private static ConversationDto ToDto(Conversation e) => new(e.Id, e.CustomerId, e.EmployeeId, e.OpportunityId, e.Message, e.Channel, e.CreatedAt);
 }

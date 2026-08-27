@@ -19,11 +19,12 @@ builder.Host.UseSerilog((context, services, loggerConfiguration) =>
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ??
     "Server=(localdb)\\mssqllocaldb;Database=PlayBookDb;Trusted_Connection=True;MultipleActiveResultSets=true";
+var useInMemoryDatabase = builder.Configuration.GetValue<bool>("UseInMemoryDatabase") ||
+    connectionString.Contains("(localdb)", StringComparison.OrdinalIgnoreCase);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddOpenApi();
-builder.Services.AddInfrastructure(connectionString);
+builder.Services.AddInfrastructure(connectionString, useInMemoryDatabase);
 builder.Services.AddFluentValidationAutoValidation();
 
 builder.Services.AddAuthentication(options =>
@@ -72,11 +73,6 @@ var app = builder.Build();
 app.UseSerilogRequestLogging();
 app.UseCors("DefaultCors");
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
@@ -89,7 +85,16 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<PlayBookDbContext>();
-    db.Database.Migrate();
+
+    if (useInMemoryDatabase)
+    {
+        db.Database.EnsureCreated();
+    }
+    else
+    {
+        db.Database.Migrate();
+    }
+
     if (app.Environment.IsDevelopment())
     {
         DevelopmentDataSeeder.SeedAsync(db).GetAwaiter().GetResult();

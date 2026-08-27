@@ -15,6 +15,14 @@ public sealed class ApprovalsController(IApprovalService approvalService) : Cont
         catch (InvalidOperationException exception) { return Conflict(exception.Message); }
     }
 
+    [HttpPost("proposals/{proposalId:guid}/resubmit")]
+    public async Task<ActionResult<ApprovalDto>> ResubmitApproval(Guid proposalId, CancellationToken cancellationToken)
+    {
+        try { return Ok(await approvalService.ResubmitAsync(proposalId, cancellationToken: cancellationToken)); }
+        catch (KeyNotFoundException exception) { return NotFound(exception.Message); }
+        catch (InvalidOperationException exception) { return Conflict(exception.Message); }
+    }
+
     [HttpGet("proposals/{proposalId:guid}")]
     public async Task<ActionResult<IReadOnlyList<ApprovalDto>>> GetForProposal(Guid proposalId, CancellationToken cancellationToken) =>
         Ok(await approvalService.GetForProposalAsync(proposalId, cancellationToken));

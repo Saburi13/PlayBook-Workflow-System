@@ -49,7 +49,9 @@ public class ConditionEvaluator : IConditionEvaluator
         }
 
         var current = model;
-        foreach (var segment in field.Split('.'))
+        var segments = field.Split('.');
+        var startIndex = segments.Length > 1 && string.Equals(segments[0], model.GetType().Name, StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+        foreach (var segment in segments.Skip(startIndex))
         {
             if (current == null)
             {

@@ -75,6 +75,69 @@ public sealed class WorkflowController(
         });
     }
 
+    [HttpPut("playbooks/{id:guid}")]
+    public async Task<ActionResult<object>> UpdatePlayBook(Guid id, CreatePlayBookRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Steps.Count == 0 || request.Steps.Count(step => step.IsStartStep) != 1)
+            return BadRequest("A PlayBook requires exactly one start step.");
+
+        var playBook = await dbContext.PlayBooks
+            .Include(item => item.Steps).ThenInclude(step => step.Conditions)
+            .Include(item => item.Transitions).ThenInclude(transition => transition.Condition)
+            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (playBook is null) return NotFound();
+
+        dbContext.Conditions.RemoveRange(playBook.Steps.SelectMany(step => step.Conditions));
+        dbContext.WorkflowTransitions.RemoveRange(playBook.Transitions);
+        dbContext.PlayBookSteps.RemoveRange(playBook.Steps);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        playBook.Steps.Clear();
+        playBook.Transitions.Clear();
+
+        playBook.Name = request.Name.Trim();
+        playBook.Description = request.Description;
+        playBook.Status = request.Status;
+        playBook.TriggerType = request.TriggerType;
+        playBook.CreatedBy = request.CreatedBy.Trim();
+        playBook.Version++;
+
+        var steps = request.Steps.Select(step => new PlayBookStep
+        {
+            Id = Guid.NewGuid(), PlayBookId = playBook.Id, Name = step.Name.Trim(), Description = step.Description,
+            StepType = step.StepType, ConfigurationJson = step.ConfigurationJson, PositionX = step.PositionX,
+            PositionY = step.PositionY, IsStartStep = step.IsStartStep, IsEndStep = step.IsEndStep
+        }).ToList();
+        var transitions = request.Transitions.Select(transition => new WorkflowTransition
+        {
+            Id = Guid.NewGuid(), PlayBookId = playBook.Id, FromStepId = GetStepId(steps, transition.FromStepIndex),
+            ToStepId = GetStepId(steps, transition.ToStepIndex), Label = transition.Label, Priority = transition.Priority,
+            Condition = transition.Condition is null ? null : new Condition
+            {
+                Id = Guid.NewGuid(), Field = transition.Condition.Field, Operator = transition.Condition.Operator,
+                Value = transition.Condition.Value, DataType = transition.Condition.DataType,
+                StepId = GetStepId(steps, transition.FromStepIndex)
+            }
+        }).ToList();
+        dbContext.PlayBookSteps.AddRange(steps);
+        dbContext.WorkflowTransitions.AddRange(transitions);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Ok(new { playBook.Id, playBook.Name, playBook.Status, playBook.Version });
+    }
+
+    [HttpPost("playbooks/{id:guid}/activate")]
+    public async Task<ActionResult<object>> ActivatePlayBook(Guid id, CancellationToken cancellationToken)
+    {
+        var playBook = await dbContext.PlayBooks.Include(item => item.Steps).SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (playBook is null) return NotFound();
+        if (playBook.Steps.Count == 0 || playBook.Steps.Count(step => step.IsStartStep) != 1 || !playBook.Steps.Any(step => step.IsEndStep))
+            return BadRequest("An active PlayBook requires one start step and one end step.");
+
+        playBook.Status = PlayBookStatus.Active;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Ok(new { playBook.Id, playBook.Name, playBook.Status, playBook.Version });
+    }
+
     [HttpPost("executions")]
     public async Task<ActionResult<WorkflowExecutionDto>> Start(StartWorkflowApiRequest request, CancellationToken cancellationToken)
     {

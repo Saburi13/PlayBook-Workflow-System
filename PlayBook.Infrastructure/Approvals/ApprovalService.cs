@@ -15,7 +15,7 @@ public sealed class ApprovalService(PlayBookDbContext dbContext) : IApprovalServ
             .SingleOrDefaultAsync(item => item.Id == proposalId, cancellationToken);
 
         if (proposal is null) throw new KeyNotFoundException("Proposal was not found.");
-        if (proposal.Status is not (ProposalStatus.Draft or ProposalStatus.Rejected)) throw new InvalidOperationException("Only draft or rejected proposals can be submitted for approval.");
+        if (proposal.Status is not (ProposalStatus.Draft or ProposalStatus.Rejected or ProposalStatus.CustomerRejected)) throw new InvalidOperationException("Only draft, rejected, or customer-rejected proposals can be submitted for approval.");
 
         var existingPending = await dbContext.Approvals.AnyAsync(item => item.ProposalId == proposalId && item.Status == ApprovalStatus.Pending, cancellationToken);
         if (existingPending) throw new InvalidOperationException("The proposal already has a pending approval.");
@@ -41,6 +41,11 @@ public sealed class ApprovalService(PlayBookDbContext dbContext) : IApprovalServ
         dbContext.Approvals.Add(approval);
         await dbContext.SaveChangesAsync(cancellationToken);
         return ToDto(approval);
+    }
+
+    public Task<ApprovalDto> ResubmitAsync(Guid proposalId, Guid? workflowExecutionId = null, CancellationToken cancellationToken = default)
+    {
+        return RequestAsync(proposalId, workflowExecutionId, cancellationToken);
     }
 
     public async Task<IReadOnlyList<ApprovalDto>> GetForProposalAsync(Guid proposalId, CancellationToken cancellationToken = default) =>
@@ -75,6 +80,21 @@ public sealed class ApprovalService(PlayBookDbContext dbContext) : IApprovalServ
         approval.Proposal.UpdatedAt = DateTime.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
         return ToDto(approval);
+    }
+
+    public static IReadOnlyList<Employee> BuildApprovalHierarchy(Employee employee)
+    {
+        var chain = new List<Employee>();
+        var current = employee;
+
+        while (current is not null)
+        {
+            chain.Add(current);
+            current = current.Manager;
+        }
+
+        chain.Reverse();
+        return chain;
     }
 
     private async Task<(Employee Employee, int Level)?> FindApproverAsync(Employee requester, decimal amount, CancellationToken cancellationToken)

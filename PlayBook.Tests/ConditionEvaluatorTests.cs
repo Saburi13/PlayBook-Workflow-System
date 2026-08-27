@@ -1,5 +1,6 @@
 using System.Text.Json;
 using PlayBook.Application.Services;
+using PlayBook.Domain;
 
 namespace PlayBook.Tests;
 
@@ -35,5 +36,15 @@ public sealed class ConditionEvaluatorTests
         var result = evaluator.Evaluate("priority", "Equals", "High", document.RootElement);
 
         Assert.False(result);
+    }
+
+    [Fact]
+    public void EvaluatesEntityPrefixedProperty()
+    {
+        var proposal = new Proposal { DiscountPercentage = 10m };
+
+        var result = evaluator.Evaluate("Proposal.DiscountPercentage", "GreaterThan", "5", proposal, "decimal");
+
+        Assert.True(result);
     }
 }
