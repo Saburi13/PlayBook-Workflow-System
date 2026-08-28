@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PlayBook.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using PlayBook.Infrastructure.Data;
 namespace PlayBook.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(PlayBookDbContext))]
-    partial class PlayBookDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260827183903_RenewalRemindersAndPlanDuration")]
+    partial class RenewalRemindersAndPlanDuration
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -241,9 +244,6 @@ namespace PlayBook.Infrastructure.Data.Migrations
                     b.Property<Guid>("ProposalId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<int>("ProposalRevision")
-                        .HasColumnType("int");
-
                     b.Property<DateTime>("RequestedAt")
                         .HasColumnType("datetime2");
 
@@ -260,8 +260,6 @@ namespace PlayBook.Infrastructure.Data.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("WorkflowExecutionId");
 
                     b.HasIndex("ApproverEmployeeId", "Status");
 
@@ -590,9 +588,6 @@ namespace PlayBook.Infrastructure.Data.Migrations
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<decimal>("DiscountAmount")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<DateTime>("OrderDate")
                         .HasColumnType("datetime2");
 
@@ -797,9 +792,6 @@ namespace PlayBook.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("CorrectionReason")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -823,9 +815,6 @@ namespace PlayBook.Infrastructure.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<int>("Revision")
-                        .HasColumnType("int");
-
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -840,12 +829,6 @@ namespace PlayBook.Infrastructure.Data.Migrations
 
                     b.Property<DateTime?>("ValidUntil")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("VoucherCode")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal>("VoucherDiscountAmount")
-                        .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
 
@@ -876,12 +859,6 @@ namespace PlayBook.Infrastructure.Data.Migrations
                     b.Property<decimal>("DiscountPercentage")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<int>("DiscountType")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("DiscountValue")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uniqueidentifier");
 
@@ -908,47 +885,6 @@ namespace PlayBook.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("ProposalProducts");
-                });
-
-            modelBuilder.Entity("PlayBook.Domain.ProposalRevision", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("CorrectionReason")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal>("DiscountAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid>("ProposalId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("Revision")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("SubTotal")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("TotalAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal>("VoucherDiscountAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProposalId", "Revision")
-                        .IsUnique();
-
-                    b.ToTable("ProposalRevisions");
                 });
 
             modelBuilder.Entity("PlayBook.Domain.RenewalReminder", b =>
@@ -1020,52 +956,6 @@ namespace PlayBook.Infrastructure.Data.Migrations
                     b.HasIndex("ProductId");
 
                     b.ToTable("Subscriptions");
-                });
-
-            modelBuilder.Entity("PlayBook.Domain.Voucher", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("DiscountType")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("DiscountValue")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<decimal?>("MinimumAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<bool>("Stackable")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("ValidFrom")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("ValidUntil")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("Vouchers");
                 });
 
             modelBuilder.Entity("PlayBook.Domain.WorkflowExecution", b =>
@@ -1298,16 +1188,9 @@ namespace PlayBook.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("PlayBook.Domain.WorkflowExecution", "WorkflowExecution")
-                        .WithMany()
-                        .HasForeignKey("WorkflowExecutionId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("ApproverEmployee");
 
                     b.Navigation("Proposal");
-
-                    b.Navigation("WorkflowExecution");
                 });
 
             modelBuilder.Entity("PlayBook.Domain.Condition", b =>
@@ -1520,17 +1403,6 @@ namespace PlayBook.Infrastructure.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Product");
-
-                    b.Navigation("Proposal");
-                });
-
-            modelBuilder.Entity("PlayBook.Domain.ProposalRevision", b =>
-                {
-                    b.HasOne("PlayBook.Domain.Proposal", "Proposal")
-                        .WithMany()
-                        .HasForeignKey("ProposalId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
 
                     b.Navigation("Proposal");
                 });

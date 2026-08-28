@@ -121,6 +121,12 @@ public enum ConditionOperator
     IsNotNull
 }
 
+public enum DiscountType
+{
+    Percentage,
+    FixedAmount
+}
+
 public class EmployeeGrade : AuditableEntity
 {
     public Guid Id { get; set; }
@@ -184,6 +190,7 @@ public class Product : AuditableEntity
     public string? Category { get; set; }
     [Column(TypeName = "decimal(18,2)")]
     public decimal Price { get; set; }
+    public int? PlanDurationMonths { get; set; }
     public bool IsActive { get; set; } = true;
 
     public ICollection<ProposalProduct> ProposalProducts { get; set; } = new List<ProposalProduct>();
@@ -228,6 +235,10 @@ public class Proposal : AuditableEntity
     public decimal DiscountAmount { get; set; }
     [Column(TypeName = "decimal(18,2)")]
     public decimal TotalAmount { get; set; }
+    public string? VoucherCode { get; set; }
+    public decimal VoucherDiscountAmount { get; set; }
+    public int Revision { get; set; } = 1;
+    public string? CorrectionReason { get; set; }
     public DateTime? ValidUntil { get; set; }
 
     public Opportunity Opportunity { get; set; } = null!;
@@ -235,7 +246,7 @@ public class Proposal : AuditableEntity
     public Employee CreatedByEmployee { get; set; } = null!;
     public ICollection<ProposalProduct> ProposalProducts { get; set; } = new List<ProposalProduct>();
     public ICollection<Order> Orders { get; set; } = new List<Order>();
-    public ICollection<Approval> Approvals { get; set; } = new List<Approval>();
+        public ICollection<Approval> Approvals { get; set; } = new List<Approval>();
     public ICollection<EngagementActivity> Activities { get; set; } = new List<EngagementActivity>();
 }
 
@@ -253,6 +264,8 @@ public class ProposalProduct : AuditableEntity
     public decimal DiscountAmount { get; set; }
     [Column(TypeName = "decimal(18,2)")]
     public decimal TotalPrice { get; set; }
+    public DiscountType DiscountType { get; set; } = DiscountType.Percentage;
+    public decimal DiscountValue { get; set; }
 
     public Proposal Proposal { get; set; } = null!;
     public Product Product { get; set; } = null!;
@@ -269,6 +282,7 @@ public class Order : AuditableEntity
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
     [Column(TypeName = "decimal(18,2)")]
     public decimal TotalAmount { get; set; }
+    public decimal DiscountAmount { get; set; }
     public DateTime OrderDate { get; set; } = DateTime.UtcNow;
 
     public Proposal Proposal { get; set; } = null!;
@@ -410,6 +424,7 @@ public class Approval : AuditableEntity
     public Guid ProposalId { get; set; }
     public Guid? WorkflowExecutionId { get; set; }
     public Guid ApproverEmployeeId { get; set; }
+    public int ProposalRevision { get; set; } = 1;
     public int ApprovalLevel { get; set; }
     public ApprovalStatus Status { get; set; } = ApprovalStatus.Pending;
     public string? Comments { get; set; }
@@ -418,6 +433,21 @@ public class Approval : AuditableEntity
 
     public Proposal Proposal { get; set; } = null!;
     public Employee ApproverEmployee { get; set; } = null!;
+    public WorkflowExecution? WorkflowExecution { get; set; }
+}
+
+public class ProposalRevision : AuditableEntity
+{
+    public Guid Id { get; set; }
+    public Guid ProposalId { get; set; }
+    public int Revision { get; set; }
+    public string? CorrectionReason { get; set; }
+    public decimal SubTotal { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public decimal VoucherDiscountAmount { get; set; }
+    public decimal TotalAmount { get; set; }
+
+    public Proposal Proposal { get; set; } = null!;
 }
 
 public class EngagementActivity : AuditableEntity
@@ -427,6 +457,8 @@ public class EngagementActivity : AuditableEntity
     public Guid? EmployeeId { get; set; }
     public Guid? OpportunityId { get; set; }
     public Guid? ProposalId { get; set; }
+    public Guid? SubscriptionId { get; set; }
+    public Guid? RenewalReminderId { get; set; }
     [Required, MaxLength(100)]
     public string Type { get; set; } = string.Empty;
     public string? Subject { get; set; }
@@ -437,6 +469,8 @@ public class EngagementActivity : AuditableEntity
     public Employee? Employee { get; set; }
     public Opportunity? Opportunity { get; set; }
     public Proposal? Proposal { get; set; }
+    public Subscription? Subscription { get; set; }
+    public RenewalReminder? RenewalReminder { get; set; }
 }
 
 public class Conversation : AuditableEntity
@@ -466,4 +500,33 @@ public class Subscription : AuditableEntity
 
     public Customer Customer { get; set; } = null!;
     public Product Product { get; set; } = null!;
+    public ICollection<RenewalReminder> RenewalReminders { get; set; } = new List<RenewalReminder>();
+}
+
+public class RenewalReminder : AuditableEntity
+{
+    public Guid Id { get; set; }
+    public Guid SubscriptionId { get; set; }
+    public int OffsetDays { get; set; }
+    public DateTime ReminderDate { get; set; }
+    public DateTime? ProcessedAt { get; set; }
+
+    public Subscription Subscription { get; set; } = null!;
+    public ICollection<EngagementActivity> Activities { get; set; } = new List<EngagementActivity>();
+}
+
+public class Voucher : AuditableEntity
+{
+    public Guid Id { get; set; }
+    [Required, MaxLength(100)]
+    public string Code { get; set; } = string.Empty;
+    public DiscountType DiscountType { get; set; }
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal DiscountValue { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime? ValidFrom { get; set; }
+    public DateTime? ValidUntil { get; set; }
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? MinimumAmount { get; set; }
+    public bool Stackable { get; set; }
 }

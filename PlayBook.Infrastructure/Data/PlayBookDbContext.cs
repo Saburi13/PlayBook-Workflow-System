@@ -31,6 +31,9 @@ public class PlayBookDbContext : IdentityDbContext<IdentityUser>
     public DbSet<EngagementActivity> EngagementActivities => Set<EngagementActivity>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<RenewalReminder> RenewalReminders => Set<RenewalReminder>();
+    public DbSet<Voucher> Vouchers => Set<Voucher>();
+    public DbSet<ProposalRevision> ProposalRevisions => Set<ProposalRevision>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -145,6 +148,12 @@ public class PlayBookDbContext : IdentityDbContext<IdentityUser>
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Approval>()
+            .HasOne(a => a.WorkflowExecution)
+            .WithMany()
+            .HasForeignKey(a => a.WorkflowExecutionId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<Approval>()
             .HasIndex(a => new { a.ProposalId, a.Status });
 
         modelBuilder.Entity<Approval>()
@@ -173,6 +182,42 @@ public class PlayBookDbContext : IdentityDbContext<IdentityUser>
             .WithMany(p => p.Subscriptions)
             .HasForeignKey(s => s.ProductId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<RenewalReminder>()
+            .HasOne(r => r.Subscription)
+            .WithMany(s => s.RenewalReminders)
+            .HasForeignKey(r => r.SubscriptionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<EngagementActivity>()
+            .HasOne(a => a.Subscription)
+            .WithMany()
+            .HasForeignKey(a => a.SubscriptionId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<EngagementActivity>()
+            .HasOne(a => a.RenewalReminder)
+            .WithMany(r => r.Activities)
+            .HasForeignKey(a => a.RenewalReminderId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<RenewalReminder>()
+            .HasIndex(r => new { r.SubscriptionId, r.OffsetDays })
+            .IsUnique();
+
+        modelBuilder.Entity<Voucher>()
+            .HasIndex(v => v.Code)
+            .IsUnique();
+
+        modelBuilder.Entity<ProposalRevision>()
+            .HasOne(revision => revision.Proposal)
+            .WithMany()
+            .HasForeignKey(revision => revision.ProposalId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ProposalRevision>()
+            .HasIndex(revision => new { revision.ProposalId, revision.Revision })
+            .IsUnique();
 
         modelBuilder.Entity<Employee>()
             .HasIndex(e => e.Email)

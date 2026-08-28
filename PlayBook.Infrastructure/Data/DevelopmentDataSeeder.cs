@@ -16,6 +16,9 @@ public static class DevelopmentDataSeeder
     private static readonly Guid DemoPlayBookId = Guid.Parse("50000000-0000-0000-0000-000000000001");
     private static readonly Guid DemoEventPlayBookId = Guid.Parse("50000000-0000-0000-0000-000000000002");
     private static readonly Guid DemoProposalId = Guid.Parse("60000000-0000-0000-0000-000000000001");
+    private static readonly Guid DemoPercentageVoucherId = Guid.Parse("70000000-0000-0000-0000-000000000001");
+    private static readonly Guid DemoFixedVoucherId = Guid.Parse("70000000-0000-0000-0000-000000000002");
+    private static readonly Guid DemoExpiredVoucherId = Guid.Parse("70000000-0000-0000-0000-000000000003");
 
     public static async Task SeedAsync(PlayBookDbContext db, CancellationToken cancellationToken = default)
     {
@@ -56,6 +59,20 @@ public static class DevelopmentDataSeeder
             db.Opportunities.Add(new Opportunity { Id = OpportunityId, CustomerId = CustomerId, AssignedEmployeeId = AdityaId, Name = "Northwind connectivity upgrade", Description = "100 Mbps connectivity with managed router and entertainment bundle", EstimatedValue = 54999, Status = OpportunityStatus.InProgress, ExpectedCloseDate = DateTime.UtcNow.Date.AddDays(30) });
         }
 
+        await db.SaveChangesAsync(cancellationToken);
+
+        if (!await db.Vouchers.AnyAsync(item => item.Code == "DEMO-PERCENT", cancellationToken))
+        {
+            db.Vouchers.Add(new Voucher { Id = DemoPercentageVoucherId, Code = "DEMO-PERCENT", DiscountType = DiscountType.Percentage, DiscountValue = 10m, IsActive = true, MinimumAmount = 1000m, Stackable = false });
+        }
+        if (!await db.Vouchers.AnyAsync(item => item.Code == "DEMO-FIXED", cancellationToken))
+        {
+            db.Vouchers.Add(new Voucher { Id = DemoFixedVoucherId, Code = "DEMO-FIXED", DiscountType = DiscountType.FixedAmount, DiscountValue = 250m, IsActive = true, MinimumAmount = 2500m, Stackable = true });
+        }
+        if (!await db.Vouchers.AnyAsync(item => item.Code == "DEMO-EXPIRED", cancellationToken))
+        {
+            db.Vouchers.Add(new Voucher { Id = DemoExpiredVoucherId, Code = "DEMO-EXPIRED", DiscountType = DiscountType.Percentage, DiscountValue = 15m, IsActive = true, ValidUntil = DateTime.UtcNow.AddDays(-1) });
+        }
         await db.SaveChangesAsync(cancellationToken);
 
         if (!await db.PlayBooks.AnyAsync(cancellationToken))

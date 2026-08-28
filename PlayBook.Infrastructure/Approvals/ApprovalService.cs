@@ -33,6 +33,7 @@ public sealed class ApprovalService(PlayBookDbContext dbContext) : IApprovalServ
             ApproverEmployeeId = approver.Id,
             ApproverEmployee = approver,
             ApprovalLevel = approvalLevel,
+            ProposalRevision = proposal.Revision,
             Status = ApprovalStatus.Pending,
             RequestedAt = DateTime.UtcNow
         };
@@ -54,7 +55,7 @@ public sealed class ApprovalService(PlayBookDbContext dbContext) : IApprovalServ
             .Where(item => item.ProposalId == proposalId)
             .OrderBy(item => item.ApprovalLevel)
             .ThenBy(item => item.RequestedAt)
-            .Select(item => new ApprovalDto(item.Id, item.ProposalId, item.WorkflowExecutionId, item.ApproverEmployeeId, item.ApproverEmployee.FirstName + " " + item.ApproverEmployee.LastName, item.ApprovalLevel, item.Status, item.Comments, item.RequestedAt, item.RespondedAt))
+            .Select(item => new ApprovalDto(item.Id, item.ProposalId, item.WorkflowExecutionId, item.ApproverEmployeeId, item.ApproverEmployee.FirstName + " " + item.ApproverEmployee.LastName, item.ApprovalLevel, item.ProposalRevision, item.Status, item.Comments, item.RequestedAt, item.RespondedAt))
             .ToListAsync(cancellationToken);
 
     public async Task<ApprovalDto> DecideAsync(Guid approvalId, ApprovalDecisionRequest request, CancellationToken cancellationToken = default)
@@ -63,6 +64,7 @@ public sealed class ApprovalService(PlayBookDbContext dbContext) : IApprovalServ
 
         var approval = await dbContext.Approvals
             .Include(item => item.Proposal)
+            .Include(item => item.WorkflowExecution)
             .Include(item => item.ApproverEmployee)
                 .ThenInclude(employee => employee.EmployeeGrade)
             .SingleOrDefaultAsync(item => item.Id == approvalId, cancellationToken);
@@ -78,6 +80,12 @@ public sealed class ApprovalService(PlayBookDbContext dbContext) : IApprovalServ
         approval.UpdatedAt = DateTime.UtcNow;
         approval.Proposal.Status = request.Decision == ApprovalStatus.Approved ? ProposalStatus.Approved : ProposalStatus.Rejected;
         approval.Proposal.UpdatedAt = DateTime.UtcNow;
+        if (request.Decision == ApprovalStatus.Rejected && approval.WorkflowExecution is not null)
+        {
+            approval.WorkflowExecution.Status = WorkflowStatus.Failed;
+            approval.WorkflowExecution.ErrorMessage = "Approval rejected: " + (approval.Comments ?? "No reason provided.");
+            approval.WorkflowExecution.CompletedAt = DateTime.UtcNow;
+        }
         await dbContext.SaveChangesAsync(cancellationToken);
         return ToDto(approval);
     }
@@ -113,5 +121,5 @@ public sealed class ApprovalService(PlayBookDbContext dbContext) : IApprovalServ
     }
 
     private static ApprovalDto ToDto(Approval approval) =>
-        new(approval.Id, approval.ProposalId, approval.WorkflowExecutionId, approval.ApproverEmployeeId, approval.ApproverEmployee.FirstName + " " + approval.ApproverEmployee.LastName, approval.ApprovalLevel, approval.Status, approval.Comments, approval.RequestedAt, approval.RespondedAt);
+        new(approval.Id, approval.ProposalId, approval.WorkflowExecutionId, approval.ApproverEmployeeId, approval.ApproverEmployee.FirstName + " " + approval.ApproverEmployee.LastName, approval.ApprovalLevel, approval.ProposalRevision, approval.Status, approval.Comments, approval.RequestedAt, approval.RespondedAt);
 }

@@ -880,4 +880,52 @@ public sealed class ApprovalRoutingTests
         Assert.Equal(ProposalStatus.PendingApproval, proposal.Status);
         Assert.Equal(ApprovalStatus.Pending, result.Status);
     }
+
+    [Fact]
+    public async Task TriggerAsync_FiltersByAssignedEmployeeAndLeavesUnrestrictedPlayBooksWorking()
+    {
+        var options = new DbContextOptionsBuilder<PlayBookDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new PlayBookDbContext(options);
+        var employee = new Employee { Id = Guid.NewGuid(), FirstName = "Assigned", LastName = "Seller", Email = "assigned-filter@test.local", IsActive = true };
+        var opportunity = new Opportunity { Id = Guid.NewGuid(), CustomerId = Guid.NewGuid(), AssignedEmployeeId = employee.Id, Name = "Filtered opportunity" };
+        var otherOpportunity = new Opportunity { Id = Guid.NewGuid(), CustomerId = opportunity.CustomerId, AssignedEmployeeId = Guid.NewGuid(), Name = "Other opportunity" };
+        dbContext.Employees.Add(employee);
+        dbContext.Opportunities.AddRange(opportunity, otherOpportunity);
+        var start = new PlayBookStep { Id = Guid.NewGuid(), Name = "Start", StepType = StepType.Trigger, IsStartStep = true, ConfigurationJson = "{\"event\":\"Opportunity Created\",\"employeeId\":\"" + employee.Id + "\"}" };
+        var end = new PlayBookStep { Id = Guid.NewGuid(), Name = "End", StepType = StepType.End, IsEndStep = true };
+        var playBook = new PlayBook.Domain.PlayBook { Id = Guid.NewGuid(), Name = "Employee trigger", Status = PlayBookStatus.Active, TriggerType = TriggerType.Event, Steps = [start, end], Transitions = [new WorkflowTransition { Id = Guid.NewGuid(), FromStepId = start.Id, ToStepId = end.Id }] };
+        dbContext.PlayBooks.Add(playBook);
+        await dbContext.SaveChangesAsync();
+        var service = new WorkflowExecutionService(dbContext, new ConditionEvaluator(), new ApprovalService(dbContext));
+
+        var matching = await service.TriggerAsync("Opportunity Created", "Opportunity", opportunity.Id, null);
+        var nonMatching = await service.TriggerAsync("Opportunity Created", "Opportunity", otherOpportunity.Id, null);
+
+        Assert.Single(matching);
+        Assert.Empty(nonMatching);
+    }
+
+    [Fact]
+    public async Task RenewalProcessor_CreatesEachConfiguredReminderOnlyOnce()
+    {
+        var options = new DbContextOptionsBuilder<PlayBookDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using var dbContext = new PlayBookDbContext(options);
+        var customer = new Customer { Id = Guid.NewGuid(), Name = "Renewal customer" };
+        var product = new Product { Id = Guid.NewGuid(), Name = "Annual plan", Price = 100m, PlanDurationMonths = 12 };
+        var now = new DateTime(2026, 8, 28, 0, 0, 0, DateTimeKind.Utc);
+        dbContext.Customers.Add(customer);
+        dbContext.Products.Add(product);
+        dbContext.Subscriptions.Add(new Subscription { Id = Guid.NewGuid(), CustomerId = customer.Id, ProductId = product.Id, StartDate = now.AddMonths(-6), EndDate = now.AddDays(60), Amount = 100m });
+        await dbContext.SaveChangesAsync();
+        var service = new WorkflowExecutionService(dbContext, new ConditionEvaluator(), new ApprovalService(dbContext));
+        var processor = new RenewalProcessor(dbContext, service);
+
+        var firstRun = await processor.ProcessAsync(now, [90, 60, 30]);
+        var secondRun = await processor.ProcessAsync(now, [90, 60, 30]);
+
+        Assert.Equal(2, firstRun);
+        Assert.Equal(0, secondRun);
+        Assert.Equal(2, await dbContext.RenewalReminders.CountAsync());
+        Assert.Equal(2, await dbContext.EngagementActivities.CountAsync());
+    }
 }

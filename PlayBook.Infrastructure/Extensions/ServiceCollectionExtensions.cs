@@ -7,6 +7,7 @@ using PlayBook.Application.Approvals;
 using PlayBook.Infrastructure.Approvals;
 using PlayBook.Infrastructure.Data;
 using PlayBook.Infrastructure.Workflows;
+using PlayBook.Application.Pricing;
 
 namespace PlayBook.Infrastructure.Extensions;
 
@@ -29,6 +30,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped(typeof(ICrmRepository<>), typeof(CrmRepository<>));
         services.AddScoped<IWorkflowExecutionService, WorkflowExecutionService>();
         services.AddScoped<IApprovalService, ApprovalService>();
+        services.AddSingleton<IPricingService, PricingCalculator>();
+        services.AddSingleton<VoucherService>();
+        services.AddScoped<RenewalProcessor>();
+        services.AddOptions<RenewalSchedulerOptions>();
+        services.AddHostedService<RenewalScheduler>();
 
         return services;
     }

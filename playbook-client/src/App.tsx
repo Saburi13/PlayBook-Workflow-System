@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import {
   BriefcaseBusiness,
   CircleDollarSign,
@@ -17,6 +17,48 @@ type CustomerSummary = {
   company?: string | null
   email?: string | null
   status?: string
+}
+
+type ProposalWorkflowPanelProps = {
+  opportunity: OpportunitySummary | null
+  customers: CustomerSummary[]
+  proposal: ProposalSummary | null
+  lines: ProposalLineSummary[]
+  approvals: ApprovalSummary[]
+  workflow: WorkflowExecutionSummary | null
+  order: OrderSummary | null
+  subscription: SubscriptionSummary | null
+  voucherCode: string
+  vouchers: VoucherSummary[]
+  message: string | null
+  correctionReason: string
+  setVoucherCode: Dispatch<SetStateAction<string>>
+  setCorrectionReason: Dispatch<SetStateAction<string>>
+  setLines: Dispatch<SetStateAction<ProposalLineSummary[]>>
+  applyVoucher: () => void
+  correctProposal: () => void
+  resubmitProposal: () => void
+  decideApproval: (approval: ApprovalSummary, decision: 'Approved' | 'Rejected') => void
+  resumeCustomerApproval: () => void
+}
+
+function ProposalWorkflowPanel(props: ProposalWorkflowPanelProps) {
+  const { opportunity, customers, proposal, lines, approvals, workflow, order, subscription, voucherCode, vouchers, message, correctionReason, setVoucherCode, setCorrectionReason, setLines, applyVoucher, correctProposal, resubmitProposal, decideApproval, resumeCustomerApproval } = props
+  const proposalStatus = normalizeEnumValue(proposal?.status, proposalStatusMap)
+  const workflowStatus = normalizeEnumValue(workflow?.status, workflowStatusMap)
+  const pendingApproval = approvals.find((approval) => normalizeEnumValue(approval.status, approvalStatusMap) === 'Pending')
+  const editable = proposalStatus === 'Draft' || proposalStatus === 'PendingApproval' || proposalStatus === 'Rejected' || proposalStatus === 'CustomerRejected'
+  return <section className="workspace-stack">
+    <button type="button" className="builder-back detail-back" onClick={() => window.location.assign('/')}><span>←</span> Back</button>
+    {message ? <div className="panel panel-error" role="status"><p>{message}</p></div> : null}
+    <div className="detail-grid">
+      <article className="panel"><div className="panel-header"><div><p className="eyebrow">Opportunity</p><h3>{opportunity?.name ?? 'Loading...'}</h3></div><span className={`status ${getStatusClass(normalizeEnumValue(opportunity?.status, opportunityStatusMap))}`}>{formatValue(normalizeEnumValue(opportunity?.status, opportunityStatusMap))}</span></div><div className="detail-facts"><div><span>Customer</span><strong>{opportunity ? getCustomerName(opportunity.customerId, customers) : 'Loading...'}</strong></div><div><span>Proposal</span><strong>{proposal ? `${proposal.proposalNumber} V${proposal.revision ?? 1}` : 'Not created'}</strong></div><div><span>Total</span><strong>${(proposal?.totalAmount ?? 0).toLocaleString()}</strong></div></div></article>
+      <article className="panel"><div className="panel-header"><h3>Workflow progress</h3><span className={`status ${getStatusClass(workflowStatus)}`}>{formatValue(workflowStatus)}</span></div><ul className="progress-list"><li className="done">✓ Opportunity</li><li className="done">✓ Proposal V{proposal?.revision ?? 1}</li><li className={proposalStatus === 'Rejected' ? 'rejected' : workflowStatus === 'Waiting' ? 'current' : 'done'}>{proposalStatus === 'Rejected' ? '✕' : workflowStatus === 'Waiting' ? '→' : '✓'} Manager Approval</li><li className={proposalStatus === 'CustomerApproved' || workflowStatus === 'Completed' ? 'done' : ''}>{proposalStatus === 'CustomerApproved' || workflowStatus === 'Completed' ? '✓' : '○'} Customer Approval</li><li className={order ? 'done' : ''}>{order ? '✓' : '○'} Order</li><li className={subscription ? 'done' : ''}>{subscription ? '✓' : '○'} Subscription</li></ul></article>
+    </div>
+    {proposal ? <article className="panel"><div className="panel-header"><div><p className="eyebrow">Pricing</p><h3>{proposalStatus} proposal</h3></div><span className={`status ${getStatusClass(proposalStatus)}`}>{formatValue(proposalStatus)}</span></div><div className="table-wrap"><table><thead><tr><th>Product</th><th>Qty</th><th>Unit price</th><th>Discount</th><th>Line total</th></tr></thead><tbody>{lines.length ? lines.map((line) => <tr key={line.id}><td>{line.productId.slice(0, 8)}</td><td>{editable ? <input type="number" min="1" value={line.quantity} onChange={(event) => setLines(current => current.map(item => item.id === line.id ? { ...item, quantity: Number(event.target.value) } : item))} /> : line.quantity}</td><td>${line.unitPrice.toLocaleString()}</td><td>{line.discountPercentage}%</td><td>${line.totalPrice.toLocaleString()}</td></tr>) : <tr><td colSpan={5}>No product lines.</td></tr>}</tbody></table></div><div className="detail-facts"><div><span>Subtotal</span><strong>${proposal.subTotal.toLocaleString()}</strong></div><div><span>Line discount</span><strong>${proposal.discountAmount.toLocaleString()}</strong></div><div><span>Voucher discount</span><strong>${(proposal.voucherDiscountAmount ?? 0).toLocaleString()}</strong></div><div><span>Final total</span><strong>${proposal.totalAmount.toLocaleString()}</strong></div></div>{editable ? <div className="form-actions"><select value={voucherCode} onChange={(event) => setVoucherCode(event.target.value)}><option value="">Select voucher</option>{vouchers.map(voucher => <option key={voucher.id} value={voucher.code}>{voucher.code}</option>)}</select><button type="button" className="primary-btn compact" onClick={() => void applyVoucher()}>Apply voucher</button></div> : null}</article> : null}
+    {proposal && proposalStatus === 'Rejected' ? <article className="panel"><div className="panel-header"><h3>Correction</h3><span>Rejected proposal V{proposal.revision ?? 1}</span></div><p>Rejected by {approvals.find(approval => normalizeEnumValue(approval.status, approvalStatusMap) === 'Rejected')?.approverName ?? 'approver'}.</p><textarea value={correctionReason} onChange={(event) => setCorrectionReason(event.target.value)} placeholder="Correction reason" rows={3} /><div className="form-actions"><button type="button" className="primary-btn compact" onClick={() => void correctProposal()}>Correct Proposal</button></div></article> : null}
+    {proposal ? <article className="panel"><div className="panel-header"><h3>Approval history</h3><span>{approvals.length} records</span></div><div className="record-list">{approvals.length ? approvals.map(approval => <div className="approval-row" key={approval.id}><div><strong>Cycle {approval.proposalRevision ?? 1} · V{approval.proposalRevision ?? 1}</strong><small>{approval.approverName} · {formatValue(normalizeEnumValue(approval.status, approvalStatusMap))} · {approval.respondedAt ? new Date(approval.respondedAt).toLocaleString() : new Date(approval.requestedAt).toLocaleString()}</small>{approval.comments ? <small>{approval.comments}</small> : null}</div>{normalizeEnumValue(approval.status, approvalStatusMap) === 'Pending' ? <div className="approval-actions"><button type="button" className="approve-btn" onClick={() => void decideApproval(approval, 'Approved')}>Approve</button><button type="button" className="reject-btn" onClick={() => void decideApproval(approval, 'Rejected')}>Reject</button></div> : null}</div>) : <p className="empty-state-inline">No approval history.</p>}</div>{proposalStatus === 'Draft' ? <button type="button" className="primary-btn compact" onClick={() => void resubmitProposal()}>Resubmit Proposal</button> : null}{proposalStatus === 'Approved' && workflow?.currentStepId ? <button type="button" className="primary-btn compact" onClick={() => void resumeCustomerApproval()}>Approve Customer</button> : null}</article> : null}
+  </section>
 }
 
 type EmployeeSummary = {
@@ -57,6 +99,9 @@ type ProposalSummary = {
   subTotal: number
   discountPercentage: number
   discountAmount: number
+  voucherDiscountAmount?: number
+  voucherCode?: string | null
+  revision?: number
   totalAmount: number
   validUntil?: string | null
 }
@@ -89,10 +134,36 @@ type ApprovalSummary = {
   approverEmployeeId: string
   approverName: string
   approvalLevel: number
+  proposalRevision?: number
   status: string | number
   comments?: string | null
   requestedAt: string
   respondedAt?: string | null
+}
+
+type ProposalLineSummary = {
+  id: string
+  proposalId: string
+  productId: string
+  quantity: number
+  unitPrice: number
+  discountPercentage: number
+  discountAmount: number
+  totalPrice: number
+  discountType?: number
+  discountValue?: number
+}
+
+type VoucherSummary = {
+  id: string
+  code: string
+  discountType: number
+  discountValue: number
+  isActive: boolean
+  validFrom?: string | null
+  validUntil?: string | null
+  minimumAmount?: number | null
+  stackable: boolean
 }
 
 type WorkflowExecutionSummary = {
@@ -216,6 +287,12 @@ export default function App() {
   const [selectedOpportunity, setSelectedOpportunity] = useState<OpportunitySummary | null>(null)
   const [selectedProposal, setSelectedProposal] = useState<ProposalSummary | null>(null)
   const [selectedApproval, setSelectedApproval] = useState<ApprovalSummary | null>(null)
+  const [proposalLines, setProposalLines] = useState<ProposalLineSummary[]>([])
+  const [proposalApprovals, setProposalApprovals] = useState<ApprovalSummary[]>([])
+  const [vouchers, setVouchers] = useState<VoucherSummary[]>([])
+  const [voucherCode, setVoucherCode] = useState('')
+  const [proposalMessage, setProposalMessage] = useState<string | null>(null)
+  const [correctionReason, setCorrectionReason] = useState('')
   const [dataVersion, setDataVersion] = useState(0)
   const [data, setData] = useState<DashboardData>({
     playbooks: [],
@@ -320,17 +397,24 @@ export default function App() {
         if (proposal) {
           const approvalsResponse = await fetch(`${API_BASE_URL}/approvals/proposals/${proposal.id}`)
           const approvals = approvalsResponse.ok ? await approvalsResponse.json() as ApprovalSummary[] : []
-          approval = approvals.find((item) => item.workflowExecutionId) ?? null
+          const linesResponse = await fetch(`${API_BASE_URL}/crm/proposals/${proposal.id}/products`)
+          const lines = linesResponse.ok ? await linesResponse.json() as ProposalLineSummary[] : []
+          approval = [...approvals].reverse().find((item) => item.workflowExecutionId) ?? null
           if (approval?.workflowExecutionId) {
             const executionResponse = await fetch(`${API_BASE_URL}/workflows/executions/${approval.workflowExecutionId}`)
             execution = executionResponse.ok ? await executionResponse.json() as WorkflowExecutionSummary : null
           }
+          setProposalApprovals(approvals)
+          setProposalLines(lines)
+          setVoucherCode(proposal.voucherCode ?? '')
         }
         if (!active) return
         setSelectedOpportunity(opportunity)
         setSelectedProposal(proposal)
         setSelectedApproval(approval)
         setWorkflowDetail(execution)
+        const vouchersResponse = await fetch(`${API_BASE_URL}/crm/vouchers`)
+        if (vouchersResponse.ok) setVouchers(await vouchersResponse.json() as VoucherSummary[])
       } catch (detailError) {
         if (active) setOpportunityMessage(detailError instanceof Error ? detailError.message : 'Unable to load Opportunity details.')
       }
@@ -358,8 +442,10 @@ export default function App() {
           status: Math.max(0, ['New', 'InProgress', 'Proposal', 'Approval', 'CustomerApproval', 'Won', 'Lost', 'Closed'].indexOf(opportunityForm.status)),
         }),
       })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result?.title ?? result?.detail ?? 'Unable to create Opportunity.')
+      const responseText = await response.text()
+      let result: OpportunitySummary
+      try { result = JSON.parse(responseText) as OpportunitySummary } catch { throw new Error(responseText || 'Unable to create Opportunity.') }
+      if (!response.ok) throw new Error((result as OpportunitySummary & { title?: string; detail?: string }).title ?? (result as OpportunitySummary & { title?: string; detail?: string }).detail ?? 'Unable to create Opportunity.')
       window.history.pushState({}, '', `/opportunities/${result.id}`)
       setSelectedOpportunityId(result.id)
       setActiveView('opportunity-detail')
@@ -443,7 +529,7 @@ export default function App() {
         throw new Error('Unable to record the approval decision.')
       }
 
-      if (approval.workflowExecutionId) {
+      if (nextStatus === 'Approved' && approval.workflowExecutionId) {
         const resumeResponse = await fetch(`${API_BASE_URL}/workflows/executions/${approval.workflowExecutionId}/resume`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -456,6 +542,61 @@ export default function App() {
       window.location.reload()
     } catch (err) {
       setActionMessage(err instanceof Error ? err.message : 'Approval decision failed.')
+    }
+  }
+
+  const resumeSpecificWorkflow = async (workflowId: string, nextDecision: 'Approved' | 'Rejected') => {
+    const response = await fetch(`${API_BASE_URL}/workflows/executions/${workflowId}/resume`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payload: { decision: nextDecision } }) })
+    if (!response.ok) throw new Error(await response.text() || 'Workflow could not be resumed.')
+    refreshWorkflowData()
+  }
+
+  const resumeCustomerApproval = async () => {
+    if (!workflowDetail?.id) return
+    await resumeSpecificWorkflow(workflowDetail.id, 'Approved')
+  }
+
+  const refreshWorkflowData = () => setDataVersion((version) => version + 1)
+
+  const applyVoucher = async () => {
+    if (!selectedProposal || !voucherCode.trim()) return
+    try {
+      setProposalMessage(null)
+      const validation = await fetch(`${API_BASE_URL}/crm/vouchers/${encodeURIComponent(voucherCode.trim())}/validate?amount=${selectedProposal.subTotal - selectedProposal.discountAmount}`)
+      if (!validation.ok) throw new Error(await validation.text() || 'Voucher could not be applied.')
+      const response = await fetch(`${API_BASE_URL}/crm/proposals/${selectedProposal.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opportunityId: selectedProposal.opportunityId, customerId: selectedProposal.customerId, createdByEmployeeId: selectedProposal.createdByEmployeeId, proposalNumber: selectedProposal.proposalNumber, status: Object.entries(proposalStatusMap).find(([, value]) => value === selectedProposal.status)?.[0] ?? selectedProposal.status, validUntil: selectedProposal.validUntil, voucherCode: voucherCode.trim(), products: proposalLines.map((line) => ({ productId: line.productId, quantity: line.quantity, discountType: line.discountType ?? 0, discountValue: line.discountValue || line.discountPercentage || selectedProposal.discountPercentage })) }),
+      })
+      if (!response.ok) throw new Error(await response.text() || 'Proposal pricing could not be recalculated.')
+      setProposalMessage('Voucher applied. Totals were recalculated by the server.')
+      refreshWorkflowData()
+    } catch (error) {
+      setProposalMessage(error instanceof Error ? error.message : 'Voucher could not be applied.')
+    }
+  }
+
+  const correctProposal = async () => {
+    if (!selectedProposal) return
+    try {
+      const response = await fetch(`${API_BASE_URL}/crm/proposals/${selectedProposal.id}/correct`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: correctionReason.trim() || 'Correction requested.' }) })
+      if (!response.ok) throw new Error(await response.text() || 'Proposal could not be corrected.')
+      setProposalMessage('Proposal revision created. Update the proposal and resubmit it for approval.')
+      refreshWorkflowData()
+    } catch (error) {
+      setProposalMessage(error instanceof Error ? error.message : 'Proposal correction failed.')
+    }
+  }
+
+  const resubmitProposal = async () => {
+    if (!selectedProposal) return
+    try {
+      const response = await fetch(`${API_BASE_URL}/approvals/proposals/${selectedProposal.id}/resubmit`, { method: 'POST' })
+      if (!response.ok) throw new Error(await response.text() || 'Proposal could not be resubmitted.')
+      setProposalMessage('Proposal resubmitted. A new approval cycle is now active.')
+      refreshWorkflowData()
+    } catch (error) {
+      setProposalMessage(error instanceof Error ? error.message : 'Proposal resubmission failed.')
     }
   }
 
@@ -540,7 +681,7 @@ export default function App() {
               {data.proposals.map((proposal) => (
                 <button key={proposal.id} type="button" className="record-row" onClick={() => { setEntityId(proposal.id); setActiveView('approvals') }}>
                   <span><strong>{proposal.proposalNumber}</strong><small>{proposalCustomer(proposal)}</small></span>
-                  <span><strong>${proposal.totalAmount.toLocaleString()}</strong><small className={`status ${getStatusClass(normalizeEnumValue(proposal.status, proposalStatusMap))}`}>{formatValue(normalizeEnumValue(proposal.status, proposalStatusMap))}</small></span>
+                  <span><strong>${proposal.totalAmount.toLocaleString()}</strong><small>{proposal.voucherCode ? `${proposal.voucherCode} · ` : ''}V${proposal.revision ?? 1} · ${proposal.voucherDiscountAmount ?? 0} voucher discount</small><small className={`status ${getStatusClass(normalizeEnumValue(proposal.status, proposalStatusMap))}`}>{formatValue(normalizeEnumValue(proposal.status, proposalStatusMap))}</small></span>
                 </button>
               ))}
             </div>
@@ -603,10 +744,13 @@ export default function App() {
     }
 
     if (activeView === 'opportunity-detail') {
-      const relatedOrder = selectedProposal ? data.orders.find((order) => order.proposalId === selectedProposal.id) : null
-      const relatedSubscription = selectedOpportunity ? data.subscriptions.find((subscription) => subscription.customerId === selectedOpportunity.customerId) : null
+      const relatedOrder = selectedProposal ? data.orders.find((order) => order.proposalId === selectedProposal.id) ?? null : null
+      const relatedSubscription = selectedOpportunity ? data.subscriptions.find((subscription) => subscription.customerId === selectedOpportunity.customerId) ?? null : null
+      return <ProposalWorkflowPanel opportunity={selectedOpportunity} customers={data.customers} proposal={selectedProposal} lines={proposalLines} approvals={proposalApprovals} workflow={workflowDetail} order={relatedOrder} subscription={relatedSubscription} voucherCode={voucherCode} vouchers={vouchers} message={proposalMessage} correctionReason={correctionReason} setVoucherCode={setVoucherCode} setCorrectionReason={setCorrectionReason} setLines={setProposalLines} applyVoucher={applyVoucher} correctProposal={correctProposal} resubmitProposal={resubmitProposal} decideApproval={decideApproval} resumeCustomerApproval={resumeCustomerApproval} />
+      /*
       const customerApprovalCompleted = normalizeEnumValue(selectedProposal?.status, proposalStatusMap) === 'CustomerApproved' || normalizeEnumValue(workflowDetail?.status, workflowStatusMap) === 'Completed'
       return <section className="workspace-stack"><button type="button" className="builder-back detail-back" onClick={() => { setActiveView('crm'); window.history.pushState({}, '', '/') }}><span>←</span> Back to CRM</button>{opportunityMessage ? <div className="panel panel-error"><p>{opportunityMessage}</p></div> : null}<div className="detail-grid"><article className="panel"><div className="panel-header"><div><p className="eyebrow">Opportunity</p><h3>{selectedOpportunity?.name ?? 'Loading...'}</h3></div><span className={`status ${getStatusClass(normalizeEnumValue(selectedOpportunity?.status, opportunityStatusMap))}`}>{formatValue(normalizeEnumValue(selectedOpportunity?.status, opportunityStatusMap))}</span></div><div className="detail-facts"><div><span>Customer</span><strong>{selectedOpportunity ? getCustomerName(selectedOpportunity.customerId, data.customers) : 'Loading...'}</strong></div><div><span>Assigned employee</span><strong>{selectedOpportunity ? data.employees.find((employee) => employee.id === selectedOpportunity.assignedEmployeeId)?.firstName ?? 'Unassigned' : 'Loading...'}</strong></div><div><span>Estimated value</span><strong>${selectedOpportunity?.estimatedValue.toLocaleString() ?? '0'}</strong></div></div></article><article className="panel"><div className="panel-header"><h3>Workflow progress</h3><span className={`status ${getStatusClass(normalizeEnumValue(workflowDetail?.status, workflowStatusMap))}`}>{formatValue(normalizeEnumValue(workflowDetail?.status, workflowStatusMap))}</span></div><ul className="progress-list"><li className="done">✓ Opportunity created</li><li className={selectedProposal ? 'done' : 'current'}>{selectedProposal ? '✓' : '→'} Proposal created</li><li className={selectedApproval?.status === 0 ? 'current' : selectedApproval ? 'done' : ''}>{selectedApproval?.status === 0 ? '→' : selectedApproval ? '✓' : '○'} Manager approval</li><li className={customerApprovalCompleted ? 'done' : selectedApproval && selectedApproval.status !== 0 ? 'current' : ''}>{customerApprovalCompleted ? '✓' : selectedApproval && selectedApproval.status !== 0 ? '→' : '○'} Customer approval</li><li className={relatedOrder ? 'done' : ''}>{relatedOrder ? '✓' : '○'} Order</li><li className={relatedSubscription ? 'done' : ''}>{relatedSubscription ? '✓' : '○'} Subscription</li></ul>{workflowDetail?.currentStepId ? <small className="muted-line">Current step ID: {workflowDetail.currentStepId}</small> : null}</article></div><article className="panel"><div className="panel-header"><h3>Related proposal</h3>{selectedProposal ? <span className="pill neutral">{formatValue(normalizeEnumValue(selectedProposal.status, proposalStatusMap))}</span> : null}</div>{selectedProposal ? <div className="detail-record"><div><strong>{selectedProposal.proposalNumber}</strong><small>{selectedProposal.discountPercentage}% discount · ${selectedProposal.totalAmount.toLocaleString()} total</small></div>{selectedApproval?.status === 0 && selectedApproval.workflowExecutionId ? <div className="approval-actions"><button type="button" className="approve-btn" onClick={() => void decideApproval(selectedApproval, 'Approved')}>Approve</button><button type="button" className="reject-btn" onClick={() => void decideApproval(selectedApproval, 'Rejected')}>Reject</button></div> : null}</div> : <p className="empty-state-inline">Waiting for the workflow to create a Proposal...</p>}</article></section>
+      */
     }
 
     return null

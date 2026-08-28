@@ -9,6 +9,7 @@ public sealed record ApprovalDto(
     Guid ApproverEmployeeId,
     string ApproverName,
     int ApprovalLevel,
+    int ProposalRevision,
     ApprovalStatus Status,
     string? Comments,
     DateTime RequestedAt,

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PlayBook.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using PlayBook.Infrastructure.Data;
 namespace PlayBook.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(PlayBookDbContext))]
-    partial class PlayBookDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260827185321_VoucherPricingAndProposalRevisions")]
+    partial class VoucherPricingAndProposalRevisions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

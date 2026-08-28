@@ -6,14 +6,17 @@ using PlayBook.Application.Interfaces;
 using PlayBook.Application.Workflows;
 using PlayBook.Domain;
 using PlayBook.Infrastructure.Data;
+using PlayBook.Application.Pricing;
 
 namespace PlayBook.Infrastructure.Workflows;
 
 public sealed class WorkflowExecutionService(
     PlayBookDbContext dbContext,
     IConditionEvaluator conditionEvaluator,
-    IApprovalService approvalService) : IWorkflowExecutionService
+    IApprovalService approvalService,
+    IPricingService? pricingService = null) : IWorkflowExecutionService
 {
+    private readonly IPricingService pricing = pricingService ?? new PricingCalculator();
     public async Task<IReadOnlyList<WorkflowExecutionDto>> TriggerAsync(string eventName, string entityType, Guid entityId, object? payload, CancellationToken cancellationToken = default)
     {
         var playBookIds = await dbContext.PlayBooks
@@ -29,7 +32,7 @@ public sealed class WorkflowExecutionService(
         var executions = new List<WorkflowExecutionDto>();
         foreach (var playBook in playBookIds)
         {
-            if (!MatchesEvent(playBook.Trigger, eventName)) continue;
+            if (!MatchesEvent(playBook.Trigger, eventName) || !await MatchesTriggerCriteriaAsync(playBook.Trigger, entityType, entityId, payload, cancellationToken)) continue;
             executions.Add(await StartAsync(new StartWorkflowRequest(playBook.Id, entityType, entityId, payload), cancellationToken));
         }
 
@@ -111,8 +114,20 @@ public sealed class WorkflowExecutionService(
 
                 if (customerDecision == ApprovalStatus.Approved)
                 {
+                    var calculatedPricing = proposal.ProposalProducts.Count == 0 ? null : await CalculateProposalPricingAsync(proposal, cancellationToken);
+                    var authoritativeTotal = calculatedPricing?.TotalAmount ?? proposal.TotalAmount;
+                    if (calculatedPricing is not null)
+                    {
+                        proposal.SubTotal = calculatedPricing.Subtotal;
+                        proposal.DiscountAmount = calculatedPricing.LineDiscountAmount;
+                        proposal.VoucherDiscountAmount = calculatedPricing.VoucherDiscountAmount;
+                        proposal.TotalAmount = authoritativeTotal;
+                    }
                     var existingOrder = await dbContext.Orders
                         .SingleOrDefaultAsync(item => item.ProposalId == proposal.Id, cancellationToken);
+                    existingOrder ??= dbContext.ChangeTracker.Entries<Order>()
+                        .Select(entry => entry.Entity)
+                        .SingleOrDefault(item => item.ProposalId == proposal.Id && dbContext.Entry(item).State != EntityState.Deleted);
 
                     if (existingOrder is null)
                     {
@@ -124,9 +139,13 @@ public sealed class WorkflowExecutionService(
                             AssignedEmployeeId = proposal.Opportunity.AssignedEmployeeId ?? proposal.CreatedByEmployeeId,
                             OrderNumber = $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}",
                             Status = OrderStatus.Pending,
-                            TotalAmount = proposal.TotalAmount,
+                            TotalAmount = authoritativeTotal,
                             OrderDate = DateTime.UtcNow
                         };
+                        if (calculatedPricing is not null)
+                        {
+                            order.OrderProducts = calculatedPricing.Lines!.Select(line => new OrderProduct { Id = Guid.NewGuid(), OrderId = order.Id, ProductId = line.ProductId, Quantity = line.Quantity, UnitPrice = line.UnitPrice, Discount = line.DiscountAmount, TotalPrice = line.TotalAmount }).ToList();
+                        }
                         dbContext.Orders.Add(order);
                     }
 
@@ -145,10 +164,18 @@ public sealed class WorkflowExecutionService(
                                 subscription.ProductId == product.Id &&
                                 subscription.Status != SubscriptionStatus.Cancelled,
                                 cancellationToken);
+                            existingSubscription ??= dbContext.ChangeTracker.Entries<Subscription>()
+                                .Select(entry => entry.Entity)
+                                .OrderByDescending(subscription => subscription.StartDate)
+                                .FirstOrDefault(subscription =>
+                                subscription.CustomerId == proposal.CustomerId &&
+                                subscription.ProductId == product.Id &&
+                                subscription.Status != SubscriptionStatus.Cancelled &&
+                                dbContext.Entry(subscription).State != EntityState.Deleted);
 
-                        if (existingSubscription is not null)
+                            if (existingSubscription is not null && (existingSubscription.Status is SubscriptionStatus.Expiring or SubscriptionStatus.Expired || existingSubscription.EndDate <= DateTime.UtcNow))
                         {
-                            var renewedSubscription = RenewExpiringSubscription(existingSubscription, DateTime.UtcNow);
+                            var renewedSubscription = RenewExpiringSubscription(existingSubscription, DateTime.UtcNow, product.PlanDurationMonths);
                             if (renewedSubscription is null) continue;
                             renewedSubscription.CustomerId = proposal.CustomerId;
                             renewedSubscription.ProductId = product.Id;
@@ -157,13 +184,15 @@ public sealed class WorkflowExecutionService(
                             continue;
                         }
 
+                        if (existingSubscription is not null) continue;
+
                         dbContext.Subscriptions.Add(new Subscription
                         {
                             Id = Guid.NewGuid(),
                             CustomerId = proposal.CustomerId,
                             ProductId = product.Id,
                             StartDate = DateTime.UtcNow,
-                            EndDate = DateTime.UtcNow.AddYears(1),
+                            EndDate = DateTime.UtcNow.AddMonths(product.PlanDurationMonths ?? 12),
                             Amount = item.TotalPrice,
                             Status = SubscriptionStatus.Active
                         });
@@ -223,7 +252,7 @@ public sealed class WorkflowExecutionService(
                     return;
                 }
 
-                if (currentStep.StepType == StepType.Action)
+                if (currentStep.StepType is StepType.Action or StepType.Notification or StepType.EmployeeAssignment)
                 {
                     workflowModel = await ExecuteActionAsync(execution, currentStep, payload, cancellationToken);
                 }
@@ -250,7 +279,7 @@ public sealed class WorkflowExecutionService(
             var transition = playBook.Transitions
                 .Where(item => item.FromStepId == currentStep.Id)
                 .OrderBy(item => item.Priority)
-                .FirstOrDefault(item => IsTransitionValid(item, workflowModel ?? payload));
+                .FirstOrDefault(item => IsForcedManagerApproval(payload, currentStep, item) || IsTransitionValid(item, workflowModel ?? payload));
 
             if (transition is null)
             {
@@ -284,6 +313,12 @@ public sealed class WorkflowExecutionService(
         var result = conditionEvaluator.Evaluate(transition.Condition.Field, transition.Condition.Operator.ToString(), transition.Condition.Value, model, transition.Condition.DataType);
         return string.Equals(transition.Label, "FALSE", StringComparison.OrdinalIgnoreCase) ? !result : result;
     }
+
+    private static bool IsForcedManagerApproval(object? payload, PlayBookStep step, WorkflowTransition transition) =>
+        step.Name.Equals("Check Discount", StringComparison.OrdinalIgnoreCase) &&
+        transition.Label.Equals("TRUE", StringComparison.OrdinalIgnoreCase) &&
+        payload is not null &&
+        payload.GetType().GetProperty("forceManagerApproval")?.GetValue(payload) is true;
 
     private async Task<Proposal?> LoadProposal(Guid id, CancellationToken cancellationToken) =>
         await dbContext.Proposals.Include(item => item.Opportunity).SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
@@ -335,7 +370,80 @@ public sealed class WorkflowExecutionService(
             return proposal;
         }
 
+        if (string.Equals(actionType, "Create Order", StringComparison.OrdinalIgnoreCase) && execution.EntityType.Equals("Proposal", StringComparison.OrdinalIgnoreCase))
+        {
+            var proposal = await dbContext.Proposals.Include(item => item.ProposalProducts).SingleOrDefaultAsync(item => item.Id == execution.EntityId, cancellationToken);
+            if (proposal is null) throw new KeyNotFoundException("Proposal was not found for order creation.");
+            var order = await dbContext.Orders.Include(item => item.OrderProducts).SingleOrDefaultAsync(item => item.ProposalId == proposal.Id, cancellationToken);
+            order ??= dbContext.ChangeTracker.Entries<Order>()
+                .Select(entry => entry.Entity)
+                .SingleOrDefault(item => item.ProposalId == proposal.Id && dbContext.Entry(item).State != EntityState.Deleted);
+            if (order is not null) return proposal;
+            order = new Order { Id = Guid.NewGuid(), ProposalId = proposal.Id, CustomerId = proposal.CustomerId, OrderNumber = $"ORD-{Guid.NewGuid():N}"[..12], TotalAmount = proposal.TotalAmount, Status = OrderStatus.Pending };
+            order.OrderProducts = proposal.ProposalProducts.Select(line => new OrderProduct { Id = Guid.NewGuid(), OrderId = order.Id, ProductId = line.ProductId, Quantity = line.Quantity, UnitPrice = line.UnitPrice, Discount = line.DiscountAmount, TotalPrice = line.TotalPrice }).ToList();
+            dbContext.Orders.Add(order);
+            return proposal;
+        }
+
+        if (string.Equals(actionType, "Update Status", StringComparison.OrdinalIgnoreCase))
+        {
+            var status = ReadString(step.ConfigurationJson, "status");
+            if (string.IsNullOrWhiteSpace(status)) return null;
+            if (execution.EntityType.Equals("Opportunity", StringComparison.OrdinalIgnoreCase) && Enum.TryParse<OpportunityStatus>(status, true, out var opportunityStatus))
+            {
+                var opportunity = await dbContext.Opportunities.SingleOrDefaultAsync(item => item.Id == execution.EntityId, cancellationToken);
+                if (opportunity is not null) opportunity.Status = opportunityStatus;
+            }
+            else if (execution.EntityType.Equals("Proposal", StringComparison.OrdinalIgnoreCase) && Enum.TryParse<ProposalStatus>(status, true, out var proposalStatus))
+            {
+                var proposal = await dbContext.Proposals.SingleOrDefaultAsync(item => item.Id == execution.EntityId, cancellationToken);
+                if (proposal is not null) proposal.Status = proposalStatus;
+            }
+            return null;
+        }
+
+        if (string.Equals(actionType, "Assign Employee", StringComparison.OrdinalIgnoreCase) || string.Equals(actionType, "Employee Assignment", StringComparison.OrdinalIgnoreCase))
+        {
+            var employeeId = ReadGuid(step.ConfigurationJson, "employeeId") ?? ReadGuid(payload, "employeeId");
+            if (employeeId is null || !await dbContext.Employees.AnyAsync(item => item.Id == employeeId && item.IsActive, cancellationToken)) return null;
+            if (execution.EntityType.Equals("Opportunity", StringComparison.OrdinalIgnoreCase))
+            {
+                var opportunity = await dbContext.Opportunities.SingleOrDefaultAsync(item => item.Id == execution.EntityId, cancellationToken);
+                if (opportunity is not null) opportunity.AssignedEmployeeId = employeeId;
+            }
+            return null;
+        }
+
+        if (string.Equals(actionType, "Create Activity", StringComparison.OrdinalIgnoreCase) || string.Equals(actionType, "Send Notification", StringComparison.OrdinalIgnoreCase) || string.Equals(actionType, "Notification", StringComparison.OrdinalIgnoreCase))
+        {
+            var customerId = await ResolveCustomerIdAsync(execution, cancellationToken);
+            if (customerId is not null && string.Equals(actionType, "Create Activity", StringComparison.OrdinalIgnoreCase))
+            {
+                dbContext.EngagementActivities.Add(new EngagementActivity { Id = Guid.NewGuid(), CustomerId = customerId.Value, OpportunityId = execution.EntityType.Equals("Opportunity", StringComparison.OrdinalIgnoreCase) ? execution.EntityId : null, ProposalId = execution.EntityType.Equals("Proposal", StringComparison.OrdinalIgnoreCase) ? execution.EntityId : null, Type = ReadString(step.ConfigurationJson, "activityType") ?? "Follow-up", Subject = ReadString(step.ConfigurationJson, "subject") ?? step.Name, Description = ReadString(step.ConfigurationJson, "description") });
+            }
+            AddHistory(execution, step, actionType ?? step.Name);
+            return null;
+        }
+
         return null;
+    }
+
+    private async Task<bool> MatchesTriggerCriteriaAsync(string? configurationJson, string entityType, Guid entityId, object? payload, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(configurationJson)) return false;
+        using var document = JsonDocument.Parse(configurationJson);
+        var root = document.RootElement;
+        var employeeId = ReadGuid(root, "employeeId") ?? ReadGuid(root, "assignedEmployeeId");
+        var role = root.TryGetProperty("role", out var roleElement) ? roleElement.GetString() : null;
+        var gradeId = ReadGuid(root, "employeeGradeId");
+        var approvalLevel = root.TryGetProperty("approvalLevel", out var levelElement) && levelElement.TryGetInt32(out var level) ? level : (int?)null;
+        if (employeeId is null && role is null && gradeId is null && approvalLevel is null) return true;
+        var contextEmployeeId = ReadGuid(payload, "employeeId") ?? ReadGuid(payload, "assignedEmployeeId");
+        if (contextEmployeeId is null && entityType.Equals("Opportunity", StringComparison.OrdinalIgnoreCase)) contextEmployeeId = await dbContext.Opportunities.Where(item => item.Id == entityId).Select(item => item.AssignedEmployeeId).SingleOrDefaultAsync(cancellationToken);
+        if (contextEmployeeId is null && entityType.Equals("Proposal", StringComparison.OrdinalIgnoreCase)) contextEmployeeId = await dbContext.Proposals.Where(item => item.Id == entityId).Select(item => (Guid?)item.CreatedByEmployeeId).SingleOrDefaultAsync(cancellationToken);
+        if (contextEmployeeId is null) return false;
+        var employee = await dbContext.Employees.Include(item => item.EmployeeGrade).SingleOrDefaultAsync(item => item.Id == contextEmployeeId, cancellationToken);
+        return employee is not null && (employeeId is null || employee.Id == employeeId) && (role is null || employee.Role.ToString().Equals(role, StringComparison.OrdinalIgnoreCase)) && (gradeId is null || employee.EmployeeGradeId == gradeId) && (approvalLevel is null || employee.EmployeeGrade?.ApprovalLimit >= approvalLevel);
     }
 
     private static decimal ReadDecimal(object? payload, string propertyName, decimal fallback)
@@ -346,6 +454,44 @@ public sealed class WorkflowExecutionService(
             if (decimal.TryParse(property.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var text)) return text;
         }
         return fallback;
+    }
+
+    private static string? ReadString(string? json, string propertyName)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.TryGetProperty(propertyName, out var property) ? property.GetString() : null;
+    }
+
+    private static Guid? ReadGuid(object? payload, string propertyName)
+    {
+        if (payload is JsonElement element && element.ValueKind == JsonValueKind.Object && element.TryGetProperty(propertyName, out var property) && Guid.TryParse(property.GetString(), out var id)) return id;
+        return null;
+    }
+
+    private static Guid? ReadGuid(JsonElement element, string propertyName) => element.TryGetProperty(propertyName, out var property) && Guid.TryParse(property.GetString(), out var id) ? id : null;
+
+    private async Task<Guid?> ResolveCustomerIdAsync(WorkflowExecution execution, CancellationToken cancellationToken) =>
+        execution.EntityType.Equals("Opportunity", StringComparison.OrdinalIgnoreCase)
+            ? await dbContext.Opportunities.Where(item => item.Id == execution.EntityId).Select(item => (Guid?)item.CustomerId).SingleOrDefaultAsync(cancellationToken)
+            : execution.EntityType.Equals("Proposal", StringComparison.OrdinalIgnoreCase)
+                ? await dbContext.Proposals.Where(item => item.Id == execution.EntityId).Select(item => (Guid?)item.CustomerId).SingleOrDefaultAsync(cancellationToken)
+                : execution.EntityType.Equals("Subscription", StringComparison.OrdinalIgnoreCase)
+                    ? await dbContext.Subscriptions.Where(item => item.Id == execution.EntityId).Select(item => (Guid?)item.CustomerId).SingleOrDefaultAsync(cancellationToken)
+                    : null;
+
+    private async Task<PricingResult> CalculateProposalPricingAsync(Proposal proposal, CancellationToken cancellationToken)
+    {
+        var lines = proposal.ProposalProducts.Select(item => new PricingLine(item.ProductId, item.Quantity, item.Product?.Price ?? item.UnitPrice, item.DiscountType, item.DiscountValue == 0m ? item.DiscountPercentage : item.DiscountValue));
+        var vouchers = new List<PricingVoucher>();
+        if (!string.IsNullOrWhiteSpace(proposal.VoucherCode))
+        {
+            var voucher = await dbContext.Vouchers.SingleOrDefaultAsync(item => item.Code == proposal.VoucherCode, cancellationToken);
+            var validation = new VoucherService().Validate(voucher, pricing.Calculate(lines).TotalAmount, DateTime.UtcNow);
+            if (!validation.IsValid) throw new InvalidOperationException(validation.Error);
+            vouchers.Add(validation.Voucher!);
+        }
+        return pricing.Calculate(lines, vouchers);
     }
 
     private async Task<IReadOnlyList<ConfiguredProductLine>> ReadProductLinesAsync(object? payload, CancellationToken cancellationToken)
@@ -416,7 +562,7 @@ public sealed class WorkflowExecutionService(
         execution.CompletedAt = DateTime.UtcNow;
     }
 
-    public static Subscription? RenewExpiringSubscription(Subscription subscription, DateTime? currentTime = null)
+    public static Subscription? RenewExpiringSubscription(Subscription subscription, DateTime? currentTime = null, int? durationMonths = null)
     {
         ArgumentNullException.ThrowIfNull(subscription);
 
@@ -435,7 +581,7 @@ public sealed class WorkflowExecutionService(
             CustomerId = subscription.CustomerId,
             ProductId = subscription.ProductId,
             StartDate = now,
-            EndDate = now.AddYears(1),
+            EndDate = now.AddMonths(durationMonths ?? 12),
             Amount = subscription.Amount,
             Status = SubscriptionStatus.Active,
             CreatedAt = now,

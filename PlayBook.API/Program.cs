@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PlayBook.Infrastructure.Data;
 using PlayBook.Infrastructure.Extensions;
+using PlayBook.Infrastructure.Workflows;
 using Serilog;
 using System.Text;
 
@@ -25,6 +26,7 @@ var useInMemoryDatabase = builder.Configuration.GetValue<bool>("UseInMemoryDatab
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddInfrastructure(connectionString, useInMemoryDatabase);
+builder.Services.Configure<RenewalSchedulerOptions>(builder.Configuration.GetSection("RenewalScheduler"));
 builder.Services.AddFluentValidationAutoValidation();
 
 builder.Services.AddAuthentication(options =>
