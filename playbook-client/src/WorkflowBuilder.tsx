@@ -162,7 +162,7 @@ export default function WorkflowBuilder({ playBookId, onBack }: { playBookId?: s
     if (!name.trim()) errors.push('PlayBook name is required.')
     if (!nodes.some((node) => node.data.stepType === 'Trigger')) errors.push('Add a Trigger node.')
     if (!nodes.some((node) => node.data.stepType === 'End')) errors.push('Add an End node.')
-    if (nodes.some((node) => node.data.stepType !== 'Trigger' && !edges.some((edge) => edge.source === node.id))) errors.push('Connect every node to an incoming workflow path.')
+    if (nodes.some((node) => node.data.stepType !== 'Trigger' && !edges.some((edge) => edge.target === node.id))) errors.push('Connect every node to an incoming workflow path.')
     if (nodes.some((node) => node.data.stepType === 'Approval' && !node.data.config.approverType)) errors.push('Configure an approver for every Approval node.')
     return errors
   }
