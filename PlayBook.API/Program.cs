@@ -4,11 +4,12 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using PlayBook.Infrastructure.Data;
+using PlayBook.Data.Context;
 using PlayBook.Infrastructure.Extensions;
 using PlayBook.Infrastructure.Workflows;
 using Serilog;
 using System.Text;
+using PlayBook.Data.Seed;
 
 var builder = WebApplication.CreateBuilder(args);
 

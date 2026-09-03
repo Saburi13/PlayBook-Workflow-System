@@ -1,9 +1,10 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using PlayBook.Application.Workflows;
+using PlayBook.Business.DTOs.Workflow;
+using PlayBook.Business.Services.Interfaces;
 using PlayBook.Domain;
-using PlayBook.Infrastructure.Data;
+using PlayBook.Data.Context;
 
 namespace PlayBook.API.Controllers;
 

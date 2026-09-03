@@ -1,7 +1,11 @@
 <Solution>
   <Project Path="PlayBook.API/PlayBook.API.csproj" />
   <Project Path="PlayBook.Application/PlayBook.Application.csproj" />
+  <Project Path="PlayBook.Business/PlayBook.Business.csproj" Id="5ae3cc5b-9040-4713-96aa-1e1acd936f1f" />
+  <Project Path="PlayBook.Common/PlayBook.Common.csproj" Id="ec2acc3d-9d03-46b2-9720-6fd0e40f4a5f" />
+  <Project Path="PlayBook.Data/PlayBook.Data.csproj" Id="27dac8e5-438c-4732-91d0-188080231583" />
   <Project Path="PlayBook.Domain/PlayBook.Domain.csproj" />
   <Project Path="PlayBook.Infrastructure/PlayBook.Infrastructure.csproj" />
+  <Project Path="PlayBook.Storage/PlayBook.Storage.csproj" Id="a503ed6f-2be2-4963-ac84-9cb319f8d998" />
   <Project Path="PlayBook.Tests/PlayBook.Tests.csproj" />
 </Solution>

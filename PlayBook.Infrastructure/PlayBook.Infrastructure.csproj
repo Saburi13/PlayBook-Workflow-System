@@ -21,8 +21,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\PlayBook.Business\PlayBook.Business.csproj" />
+    <ProjectReference Include="..\PlayBook.Data\PlayBook.Data.csproj" />
     <ProjectReference Include="..\PlayBook.Domain\PlayBook.Domain.csproj" />
     <ProjectReference Include="..\PlayBook.Application\PlayBook.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Approvals\" />
+    <Folder Include="Data\Migrations\" />
   </ItemGroup>
 
 </Project>

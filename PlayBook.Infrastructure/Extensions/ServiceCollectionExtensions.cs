@@ -1,13 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using PlayBook.Application.Interfaces;
-using PlayBook.Application.Services;
-using PlayBook.Application.Workflows;
-using PlayBook.Application.Approvals;
-using PlayBook.Infrastructure.Approvals;
-using PlayBook.Infrastructure.Data;
+
+using PlayBook.Data.Context;
+using PlayBook.Data.Repositories.Interfaces;
+using PlayBook.Data.Repositories.Implementations;
+
+using PlayBook.Business.Services.Interfaces;
+using PlayBook.Business.Services.Implementations;
+
 using PlayBook.Infrastructure.Workflows;
-using PlayBook.Application.Pricing;
 
 namespace PlayBook.Infrastructure.Extensions;
 
@@ -29,6 +30,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IConditionEvaluator, ConditionEvaluator>();
         services.AddScoped(typeof(ICrmRepository<>), typeof(CrmRepository<>));
         services.AddScoped<IWorkflowExecutionService, WorkflowExecutionService>();
+        services.AddScoped<IApprovalRepository, ApprovalRepository>();
         services.AddScoped<IApprovalService, ApprovalService>();
         services.AddSingleton<IPricingService, PricingCalculator>();
         services.AddSingleton<VoucherService>();

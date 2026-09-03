@@ -1,15 +1,16 @@
-using System.Text.Json;
 using System.Globalization;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using PlayBook.Application.Approvals;
-using PlayBook.Application.Interfaces;
-using PlayBook.Application.Workflows;
+
+using PlayBook.Business.DTOs.Approval;
+using PlayBook.Business.DTOs.Workflow;
+using PlayBook.Business.Services.Interfaces;
+using PlayBook.Business.Services.Implementations;
+using PlayBook.Data.Context;
 using PlayBook.Domain;
-using PlayBook.Infrastructure.Data;
-using PlayBook.Application.Pricing;
 
 namespace PlayBook.Infrastructure.Workflows;
-
+ 
 public sealed class WorkflowExecutionService(
     PlayBookDbContext dbContext,
     IConditionEvaluator conditionEvaluator,
@@ -613,7 +614,7 @@ public sealed class WorkflowExecutionService(
 
     public static ApprovalStatus ResolveApprovalOutcome(object? payload, ApprovalStatus? fallback)
     {
-        if (payload is ApprovalDecisionRequest request)
+        if (payload is ApprovalDecisionRequestDto request)
         {
             return request.Decision is ApprovalStatus.Approved or ApprovalStatus.Rejected ? request.Decision : fallback ?? ApprovalStatus.Pending;
         }

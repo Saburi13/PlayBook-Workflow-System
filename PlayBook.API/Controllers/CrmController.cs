@@ -1,14 +1,17 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
-using PlayBook.Application.CRM;
-using PlayBook.Application.Interfaces;
-using PlayBook.Domain;
-using PlayBook.Infrastructure.Data;
-using PlayBook.Application.Workflows;
-using PlayBook.Application.Pricing;
 
-namespace PlayBook.API.Controllers;
+using PlayBook.Business.DTOs.CRM;
+using PlayBook.Business.DTOs.Workflow;
+using PlayBook.Business.Services.Interfaces;
+using PlayBook.Business.Services.Implementations;
+
+using PlayBook.Domain;
+using PlayBook.Data.Context;
+using PlayBook.Data.Repositories.Interfaces;
+
+namespace PlayBook.Business.DTOs.CRM;
 
 [ApiController]
 [Route("api/crm")]

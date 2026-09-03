@@ -795,11 +795,11 @@ export default function App() {
           </button>
         </nav>
 
-        <div className="sidebar-card">
+        {/* <div className="sidebar-card">
           <p className="label">System health</p>
           <strong>{loading ? '...' : '99.2%'}</strong>
           <span>{error ? 'API unavailable' : 'Workflow engine online'}</span>
-        </div>
+        </div> */}
       </aside>
 
       <main className="main-panel">

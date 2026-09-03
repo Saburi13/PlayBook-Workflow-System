@@ -10,4 +10,11 @@
     <ProjectReference Include="..\PlayBook.Domain\PlayBook.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="CRM\" />
+    <Folder Include="Interfaces\" />
+    <Folder Include="Services\" />
+    <Folder Include="Workflows\" />
+  </ItemGroup>
+
 </Project>

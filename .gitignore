@@ -143,3 +143,6 @@ coverage/
 
 generated/
 artifacts/
+Backup/
+UpgradeLog.htm
+suggested_fix.txt
