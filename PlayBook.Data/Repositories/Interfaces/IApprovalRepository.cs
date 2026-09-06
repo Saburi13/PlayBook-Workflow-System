@@ -24,6 +24,10 @@ public interface IApprovalRepository
         Guid approvalId,
         CancellationToken cancellationToken = default);
 
+    Task<WorkflowExecution?> GetLastFailedWorkflowExecutionForProposalAsync(
+        Guid proposalId,
+        CancellationToken cancellationToken = default);
+
     Task AddAsync(
         Approval approval,
         CancellationToken cancellationToken = default);

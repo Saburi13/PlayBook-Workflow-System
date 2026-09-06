@@ -1,6 +1,7 @@
-﻿using PlayBook.Business.DTOs.Workflow;
+﻿using PlayBook.Business.BusinessModels.RequestDTOs.WorkflowRequestDTOs;
+using PlayBook.Business.BusinessModels.ResponseDTOs.WorkflowResponseDTOs;
 
-namespace PlayBook.Business.Services.Interfaces;
+namespace PlayBook.Business.Interfaces.IService;
 
 public interface IWorkflowExecutionService
 {

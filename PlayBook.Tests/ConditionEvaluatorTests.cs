@@ -1,5 +1,5 @@
 using System.Text.Json;
-using PlayBook.Business.Services.Implementations;
+using PlayBook.Business.Implementations.Service;
 using PlayBook.Domain;
 
 namespace PlayBook.Tests;

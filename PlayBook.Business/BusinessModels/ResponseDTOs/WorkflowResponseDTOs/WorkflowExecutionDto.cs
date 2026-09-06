@@ -1,6 +1,6 @@
 ﻿using PlayBook.Domain;
 
-namespace PlayBook.Business.DTOs.Workflow;
+namespace PlayBook.Business.BusinessModels.ResponseDTOs.WorkflowResponseDTOs;
 
 public sealed record WorkflowExecutionDto(
     Guid Id,

@@ -1,6 +1,6 @@
 ﻿using PlayBook.Domain;
 
-namespace PlayBook.Business.Services.Interfaces;
+namespace PlayBook.Business.Interfaces.IService;
 
 public sealed record PricingLine(
     Guid ProductId,

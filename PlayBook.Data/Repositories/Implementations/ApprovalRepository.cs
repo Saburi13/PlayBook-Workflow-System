@@ -71,6 +71,19 @@ public sealed class ApprovalRepository(
                 cancellationToken);
     }
 
+    public async Task<WorkflowExecution?> GetLastFailedWorkflowExecutionForProposalAsync(
+        Guid proposalId,
+        CancellationToken cancellationToken = default)
+    {
+        return await dbContext.WorkflowExecutions
+            .Where(execution =>
+                execution.EntityType == "Proposal" &&
+                execution.EntityId == proposalId &&
+                execution.Status == WorkflowStatus.Failed)
+            .OrderByDescending(execution => execution.StartedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public Task AddAsync(
         Approval approval,
         CancellationToken cancellationToken = default)

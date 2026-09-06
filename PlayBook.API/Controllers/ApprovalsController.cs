@@ -1,10 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using PlayBook.Business.DTOs.Approval;
-using PlayBook.Business.Services.Interfaces;
-using PlayBook.Data.Context;
-using PlayBook.Domain;
-using PlayBook.Business.DTOs.Workflow;
+using PlayBook.Business.BusinessModels.RequestDTOs.ApprovalRequestDTOs;
+using PlayBook.Business.BusinessModels.RequestDTOs.WorkflowRequestDTOs;
+using PlayBook.Business.BusinessModels.ResponseDTOs.ApprovalResponseDTOs;
+using PlayBook.Business.Interfaces.IService;
+using PlayBook.Data.Repositories.Interfaces;
 
 namespace PlayBook.API.Controllers;
 
@@ -12,7 +11,7 @@ namespace PlayBook.API.Controllers;
 [Route("api/approvals")]
 public sealed class ApprovalsController(
     IApprovalService approvalService,
-    PlayBookDbContext dbContext,
+    IApprovalRepository approvalRepository,
     IWorkflowExecutionService workflowExecutionService) : ControllerBase
 {
     [HttpPost("proposals/{proposalId:guid}")]
@@ -44,13 +43,10 @@ public sealed class ApprovalsController(
     {
         try
         {
-            var previousExecution = await dbContext.WorkflowExecutions
-                .Where(execution =>
-                    execution.EntityType == "Proposal" &&
-                    execution.EntityId == proposalId &&
-                    execution.Status == WorkflowStatus.Failed)
-                .OrderByDescending(execution => execution.StartedAt)
-                .FirstOrDefaultAsync(cancellationToken);
+            var previousExecution =
+                await approvalRepository.GetLastFailedWorkflowExecutionForProposalAsync(
+                    proposalId,
+                    cancellationToken);
 
             if (previousExecution is not null)
             {

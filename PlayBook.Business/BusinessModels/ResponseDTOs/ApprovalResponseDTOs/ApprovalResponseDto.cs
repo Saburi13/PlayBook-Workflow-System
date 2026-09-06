@@ -1,6 +1,6 @@
 ﻿using PlayBook.Domain;
 
-namespace PlayBook.Business.DTOs.Approval;
+namespace PlayBook.Business.BusinessModels.ResponseDTOs.ApprovalResponseDTOs;
 
 public sealed record ApprovalResponseDto(
     Guid Id,

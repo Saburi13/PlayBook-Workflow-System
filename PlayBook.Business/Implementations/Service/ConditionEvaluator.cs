@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Text.Json;
-using PlayBook.Business.Services.Interfaces;
+using PlayBook.Business.Interfaces.IService;
 
-namespace PlayBook.Business.Services.Implementations;
+namespace PlayBook.Business.Implementations.Service;
 
 public class ConditionEvaluator : IConditionEvaluator
 {

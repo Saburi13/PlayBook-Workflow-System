@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace PlayBook.Business.DTOs.Workflow;
+namespace PlayBook.Business.BusinessModels.RequestDTOs.WorkflowRequestDTOs;
 
 public sealed record StartWorkflowRequest(
     Guid PlayBookId,

@@ -1,40 +1,64 @@
+using Microsoft.EntityFrameworkCore;
+using PlayBook.Business.BusinessModels.RequestDTOs.ApprovalRequestDTOs;
+using PlayBook.Business.BusinessModels.RequestDTOs.WorkflowRequestDTOs;
+using PlayBook.Business.BusinessModels.ResponseDTOs.WorkflowResponseDTOs;
+using PlayBook.Business.Implementations.Service;
+using PlayBook.Business.Interfaces.IService;
+using PlayBook.Data.Context;
+using PlayBook.Data.Repositories.Implementations;
+using PlayBook.Data.Repositories.Interfaces;
+using PlayBook.Domain;
 using System.Globalization;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
-
-using PlayBook.Business.DTOs.Approval;
-using PlayBook.Business.DTOs.Workflow;
-using PlayBook.Business.Services.Interfaces;
-using PlayBook.Business.Services.Implementations;
-using PlayBook.Data.Context;
-using PlayBook.Domain;
 
 namespace PlayBook.Infrastructure.Workflows;
- 
+
 public sealed class WorkflowExecutionService(
     PlayBookDbContext dbContext,
+    IWorkflowExecutionRepository workflowRepository,
     IConditionEvaluator conditionEvaluator,
     IApprovalService approvalService,
     IPricingService? pricingService = null) : IWorkflowExecutionService
 {
     private readonly IPricingService pricing = pricingService ?? new PricingCalculator();
+    // ... existing methods above remain unchanged ...
     public async Task<IReadOnlyList<WorkflowExecutionDto>> TriggerAsync(string eventName, string entityType, Guid entityId, object? payload, CancellationToken cancellationToken = default)
     {
-        var playBookIds = await dbContext.PlayBooks
-            .Where(item => item.Status == PlayBookStatus.Active && item.TriggerType == TriggerType.Event)
-            .Include(item => item.Steps)
-            .Select(item => new
-            {
-                item.Id,
-                Trigger = item.Steps.SingleOrDefault(step => step.IsStartStep && step.StepType == StepType.Trigger)!.ConfigurationJson
-            })
-            .ToListAsync(cancellationToken);
+        var playBooks = await workflowRepository.GetActiveEventPlayBooksAsync(
+    cancellationToken);
 
         var executions = new List<WorkflowExecutionDto>();
-        foreach (var playBook in playBookIds)
+        foreach (var playBook in playBooks)
         {
-            if (!MatchesEvent(playBook.Trigger, eventName) || !await MatchesTriggerCriteriaAsync(playBook.Trigger, entityType, entityId, payload, cancellationToken)) continue;
-            executions.Add(await StartAsync(new StartWorkflowRequest(playBook.Id, entityType, entityId, payload), cancellationToken));
+            var triggerStep = playBook.Steps
+                .SingleOrDefault(step =>
+                    step.IsStartStep &&
+                    step.StepType == StepType.Trigger);
+
+            if (triggerStep is null)
+            {
+                continue;
+            }
+
+            if (!MatchesEvent(triggerStep.ConfigurationJson, eventName) ||
+                !await MatchesTriggerCriteriaAsync(
+                    triggerStep.ConfigurationJson,
+                    entityType,
+                    entityId,
+                    payload,
+                    cancellationToken))
+            {
+                continue;
+            }
+
+            executions.Add(
+                await StartAsync(
+                    new StartWorkflowRequest(
+                        playBook.Id,
+                        entityType,
+                        entityId,
+                        payload),
+                    cancellationToken));
         }
 
         return executions;
@@ -60,19 +84,19 @@ public sealed class WorkflowExecutionService(
             CurrentStepId = startStep.Id,
             Status = WorkflowStatus.Running
         };
-        dbContext.WorkflowExecutions.Add(execution);
+        await workflowRepository.AddExecutionAsync(
+            execution,
+            cancellationToken);
         await ProcessAsync(execution, playBook, startStep, request.Payload, request.EntityType.Equals("Proposal", StringComparison.OrdinalIgnoreCase) ? await LoadProposal(request.EntityId, cancellationToken) : null, false, cancellationToken);
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return ToDto(execution);
+        await workflowRepository.SaveChangesAsync(cancellationToken); return ToDto(execution);
     }
-
+    
     public async Task<WorkflowExecutionDto> ResumeAsync(Guid executionId, object? payload, CancellationToken cancellationToken = default)
     {
-        var execution = await dbContext.WorkflowExecutions
-            .Include(item => item.PlayBook).ThenInclude(playBook => playBook.Steps)
-            .Include(item => item.PlayBook).ThenInclude(playBook => playBook.Transitions).ThenInclude(transition => transition.Condition)
-            .AsSplitQuery()
-            .SingleOrDefaultAsync(item => item.Id == executionId, cancellationToken);
+        var execution =
+    await workflowRepository.GetWorkflowExecutionAsync(
+        executionId,
+        cancellationToken);
 
         if (execution is null) throw new KeyNotFoundException("Workflow execution was not found.");
         if (execution.Status != WorkflowStatus.Waiting) throw new InvalidOperationException("Only waiting executions can be resumed.");
@@ -82,19 +106,19 @@ public sealed class WorkflowExecutionService(
         object? workflowModel = null;
         if (execution.EntityType.Equals("Proposal", StringComparison.OrdinalIgnoreCase))
         {
-            var proposal = await dbContext.Proposals
-                .Include(item => item.Opportunity)
-                .Include(item => item.ProposalProducts)
-                    .ThenInclude(product => product.Product)
-                .SingleOrDefaultAsync(item => item.Id == execution.EntityId, cancellationToken);
+            var proposal = await workflowRepository.GetProposalForWorkflowAsync(
+                execution.EntityId,
+                cancellationToken);
             if (proposal is null) throw new KeyNotFoundException("Proposal was not found for workflow resume.");
             workflowModel = proposal;
 
             if (currentStep.StepType == StepType.Approval)
             {
                 var approvalDecision = ResolveApprovalOutcome(payload, null);
-                var approval = await dbContext.Approvals
-                    .SingleOrDefaultAsync(item => item.WorkflowExecutionId == execution.Id && item.ProposalId == execution.EntityId && item.Status == ApprovalStatus.Pending, cancellationToken);
+                var approval = await workflowRepository.GetPendingApprovalAsync(
+                execution.Id,
+                execution.EntityId,
+                cancellationToken);
 
                 if (approval is not null)
                 {
@@ -124,11 +148,10 @@ public sealed class WorkflowExecutionService(
                         proposal.VoucherDiscountAmount = calculatedPricing.VoucherDiscountAmount;
                         proposal.TotalAmount = authoritativeTotal;
                     }
-                    var existingOrder = await dbContext.Orders
-                        .SingleOrDefaultAsync(item => item.ProposalId == proposal.Id, cancellationToken);
-                    existingOrder ??= dbContext.ChangeTracker.Entries<Order>()
-                        .Select(entry => entry.Entity)
-                        .SingleOrDefault(item => item.ProposalId == proposal.Id && dbContext.Entry(item).State != EntityState.Deleted);
+
+                    var existingOrder = await workflowRepository.GetOrderByProposalIdAsync(
+    proposal.Id,
+    cancellationToken);
 
                     if (existingOrder is null)
                     {
@@ -147,7 +170,7 @@ public sealed class WorkflowExecutionService(
                         {
                             order.OrderProducts = calculatedPricing.Lines!.Select(line => new OrderProduct { Id = Guid.NewGuid(), OrderId = order.Id, ProductId = line.ProductId, Quantity = line.Quantity, UnitPrice = line.UnitPrice, Discount = line.DiscountAmount, TotalPrice = line.TotalAmount }).ToList();
                         }
-                        dbContext.Orders.Add(order);
+                        workflowRepository.AddOrder(order);
                     }
 
                     foreach (var item in proposal.ProposalProducts)
@@ -158,36 +181,26 @@ public sealed class WorkflowExecutionService(
                             continue;
                         }
 
-                        var existingSubscription = await dbContext.Subscriptions
-                            .OrderByDescending(subscription => subscription.StartDate)
-                            .FirstOrDefaultAsync(subscription =>
-                                subscription.CustomerId == proposal.CustomerId &&
-                                subscription.ProductId == product.Id &&
-                                subscription.Status != SubscriptionStatus.Cancelled,
-                                cancellationToken);
-                            existingSubscription ??= dbContext.ChangeTracker.Entries<Subscription>()
-                                .Select(entry => entry.Entity)
-                                .OrderByDescending(subscription => subscription.StartDate)
-                                .FirstOrDefault(subscription =>
-                                subscription.CustomerId == proposal.CustomerId &&
-                                subscription.ProductId == product.Id &&
-                                subscription.Status != SubscriptionStatus.Cancelled &&
-                                dbContext.Entry(subscription).State != EntityState.Deleted);
+                        var existingSubscription =
+                        await workflowRepository.GetLatestActiveSubscriptionAsync(
+                            proposal.CustomerId,
+                            product.Id,
+                            cancellationToken);
 
-                            if (existingSubscription is not null && (existingSubscription.Status is SubscriptionStatus.Expiring or SubscriptionStatus.Expired || existingSubscription.EndDate <= DateTime.UtcNow))
+                        if (existingSubscription is not null && (existingSubscription.Status is SubscriptionStatus.Expiring or SubscriptionStatus.Expired || existingSubscription.EndDate <= DateTime.UtcNow))
                         {
                             var renewedSubscription = RenewExpiringSubscription(existingSubscription, DateTime.UtcNow, product.PlanDurationMonths);
                             if (renewedSubscription is null) continue;
                             renewedSubscription.CustomerId = proposal.CustomerId;
                             renewedSubscription.ProductId = product.Id;
                             renewedSubscription.Amount = item.TotalPrice;
-                            dbContext.Subscriptions.Add(renewedSubscription);
+                            workflowRepository.AddSubscription(renewedSubscription);
                             continue;
                         }
-
+                        
                         if (existingSubscription is not null) continue;
 
-                        dbContext.Subscriptions.Add(new Subscription
+                        workflowRepository.AddSubscription(new Subscription
                         {
                             Id = Guid.NewGuid(),
                             CustomerId = proposal.CustomerId,
@@ -243,8 +256,7 @@ public sealed class WorkflowExecutionService(
                     Status = WorkflowStatus.Running
                 };
                 execution.Steps.Add(executionStep);
-                dbContext.WorkflowExecutionSteps.Add(executionStep);
-                AddHistory(execution, currentStep, "StepStarted");
+                workflowRepository.AddExecutionStep(executionStep); AddHistory(execution, currentStep, "StepStarted");
 
                 if (currentStep.IsEndStep || currentStep.StepType == StepType.End)
                 {
@@ -301,12 +313,12 @@ public sealed class WorkflowExecutionService(
         }
     }
 
-    private async Task<PlayBook.Domain.PlayBook?> LoadPlayBook(Guid id, CancellationToken cancellationToken) =>
-        await dbContext.PlayBooks
-            .Include(playBook => playBook.Steps).ThenInclude(step => step.Conditions)
-            .Include(playBook => playBook.Transitions).ThenInclude(transition => transition.Condition)
-            .AsSplitQuery()
-            .SingleOrDefaultAsync(playBook => playBook.Id == id, cancellationToken);
+    private Task<PlayBook.Domain.PlayBook?> LoadPlayBook(
+    Guid id,
+    CancellationToken cancellationToken) =>
+    workflowRepository.GetPlayBookAsync(
+        id,
+        cancellationToken);
 
     private bool IsTransitionValid(WorkflowTransition transition, object? model)
     {
@@ -321,8 +333,12 @@ public sealed class WorkflowExecutionService(
         payload is not null &&
         payload.GetType().GetProperty("forceManagerApproval")?.GetValue(payload) is true;
 
-    private async Task<Proposal?> LoadProposal(Guid id, CancellationToken cancellationToken) =>
-        await dbContext.Proposals.Include(item => item.Opportunity).SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+    private Task<Proposal?> LoadProposal(
+    Guid id,
+    CancellationToken cancellationToken) =>
+    workflowRepository.GetProposalForWorkflowAsync(
+        id,
+        cancellationToken);
 
     private async Task<object?> ExecuteActionAsync(WorkflowExecution execution, PlayBookStep step, object? payload, CancellationToken cancellationToken)
     {
@@ -331,9 +347,14 @@ public sealed class WorkflowExecutionService(
 
         if (string.Equals(actionType, "Create Proposal", StringComparison.OrdinalIgnoreCase) && execution.EntityType.Equals("Opportunity", StringComparison.OrdinalIgnoreCase))
         {
-            var opportunity = await dbContext.Opportunities.SingleOrDefaultAsync(item => item.Id == execution.EntityId, cancellationToken);
+              var opportunity = await workflowRepository.GetOpportunityAsync(
+        execution.EntityId,
+        cancellationToken);
             if (opportunity is null) throw new KeyNotFoundException("Opportunity was not found for workflow action.");
-            var employeeId = opportunity.AssignedEmployeeId ?? await dbContext.Employees.Select(item => item.Id).FirstOrDefaultAsync(cancellationToken);
+            var employeeId = opportunity.AssignedEmployeeId
+    ?? await workflowRepository.GetFirstActiveEmployeeIdAsync(
+        cancellationToken)
+    ?? Guid.Empty;
             if (employeeId == Guid.Empty) throw new InvalidOperationException("An employee is required to create a proposal.");
             var discount = ReadDecimal(payload, "discountPercentage", 0m);
             var total = opportunity.EstimatedValue;
@@ -352,11 +373,12 @@ public sealed class WorkflowExecutionService(
             }
             else
             {
-                var product = await dbContext.Products.Where(item => item.IsActive).OrderBy(item => item.Name).FirstOrDefaultAsync(cancellationToken);
+                var product = await workflowRepository.GetFirstActiveProductAsync(
+    cancellationToken);
                 if (product is not null) proposal.ProposalProducts.Add(new ProposalProduct { Id = Guid.NewGuid(), ProposalId = proposal.Id, ProductId = product.Id, Quantity = 1, UnitPrice = proposal.TotalAmount, TotalPrice = proposal.TotalAmount });
             }
-            dbContext.Proposals.Add(proposal);
-            await dbContext.SaveChangesAsync(cancellationToken);
+            workflowRepository.AddProposal(proposal);
+            await workflowRepository.SaveChangesAsync(cancellationToken);
             execution.EntityType = "Proposal";
             execution.EntityId = proposal.Id;
             return proposal;
@@ -373,16 +395,16 @@ public sealed class WorkflowExecutionService(
 
         if (string.Equals(actionType, "Create Order", StringComparison.OrdinalIgnoreCase) && execution.EntityType.Equals("Proposal", StringComparison.OrdinalIgnoreCase))
         {
-            var proposal = await dbContext.Proposals.Include(item => item.ProposalProducts).SingleOrDefaultAsync(item => item.Id == execution.EntityId, cancellationToken);
+            var proposal = await workflowRepository.GetProposalForWorkflowAsync(execution.EntityId,cancellationToken);
             if (proposal is null) throw new KeyNotFoundException("Proposal was not found for order creation.");
-            var order = await dbContext.Orders.Include(item => item.OrderProducts).SingleOrDefaultAsync(item => item.ProposalId == proposal.Id, cancellationToken);
+            var order = await workflowRepository.GetOrderByProposalIdAsync(proposal.Id,cancellationToken);
             order ??= dbContext.ChangeTracker.Entries<Order>()
                 .Select(entry => entry.Entity)
                 .SingleOrDefault(item => item.ProposalId == proposal.Id && dbContext.Entry(item).State != EntityState.Deleted);
             if (order is not null) return proposal;
             order = new Order { Id = Guid.NewGuid(), ProposalId = proposal.Id, CustomerId = proposal.CustomerId, OrderNumber = $"ORD-{Guid.NewGuid():N}"[..12], TotalAmount = proposal.TotalAmount, Status = OrderStatus.Pending };
             order.OrderProducts = proposal.ProposalProducts.Select(line => new OrderProduct { Id = Guid.NewGuid(), OrderId = order.Id, ProductId = line.ProductId, Quantity = line.Quantity, UnitPrice = line.UnitPrice, Discount = line.DiscountAmount, TotalPrice = line.TotalPrice }).ToList();
-            dbContext.Orders.Add(order);
+            workflowRepository.AddOrder(order);
             return proposal;
         }
 
@@ -392,12 +414,16 @@ public sealed class WorkflowExecutionService(
             if (string.IsNullOrWhiteSpace(status)) return null;
             if (execution.EntityType.Equals("Opportunity", StringComparison.OrdinalIgnoreCase) && Enum.TryParse<OpportunityStatus>(status, true, out var opportunityStatus))
             {
-                var opportunity = await dbContext.Opportunities.SingleOrDefaultAsync(item => item.Id == execution.EntityId, cancellationToken);
+                var opportunity = await workflowRepository.GetOpportunityAsync(
+                    execution.EntityId,
+                    cancellationToken);
                 if (opportunity is not null) opportunity.Status = opportunityStatus;
             }
             else if (execution.EntityType.Equals("Proposal", StringComparison.OrdinalIgnoreCase) && Enum.TryParse<ProposalStatus>(status, true, out var proposalStatus))
             {
-                var proposal = await dbContext.Proposals.SingleOrDefaultAsync(item => item.Id == execution.EntityId, cancellationToken);
+                var proposal = await workflowRepository.GetProposalForWorkflowAsync(
+                    execution.EntityId,
+                    cancellationToken);
                 if (proposal is not null) proposal.Status = proposalStatus;
             }
             return null;
@@ -406,10 +432,18 @@ public sealed class WorkflowExecutionService(
         if (string.Equals(actionType, "Assign Employee", StringComparison.OrdinalIgnoreCase) || string.Equals(actionType, "Employee Assignment", StringComparison.OrdinalIgnoreCase))
         {
             var employeeId = ReadGuid(step.ConfigurationJson, "employeeId") ?? ReadGuid(payload, "employeeId");
-            if (employeeId is null || !await dbContext.Employees.AnyAsync(item => item.Id == employeeId && item.IsActive, cancellationToken)) return null;
+            if (employeeId is null ||
+    !await workflowRepository.EmployeeExistsAsync(
+        employeeId.Value,
+        cancellationToken))
+            {
+                return null;
+            }
             if (execution.EntityType.Equals("Opportunity", StringComparison.OrdinalIgnoreCase))
             {
-                var opportunity = await dbContext.Opportunities.SingleOrDefaultAsync(item => item.Id == execution.EntityId, cancellationToken);
+                var opportunity = await workflowRepository.GetOpportunityAsync(
+    execution.EntityId,
+    cancellationToken);
                 if (opportunity is not null) opportunity.AssignedEmployeeId = employeeId;
             }
             return null;
@@ -539,7 +573,7 @@ public sealed class WorkflowExecutionService(
     {
         var history = new WorkflowHistory { Id = Guid.NewGuid(), WorkflowExecutionId = execution.Id, StepId = step.Id, Action = action, Timestamp = DateTime.UtcNow };
         execution.Histories.Add(history);
-        dbContext.WorkflowHistories.Add(history);
+        workflowRepository.AddHistory(history);
     }
 
     private static void CompleteStep(WorkflowExecutionStep step, string result)

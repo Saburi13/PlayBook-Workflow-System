@@ -1,7 +1,7 @@
-using PlayBook.Business.Services.Interfaces;
+using PlayBook.Business.Interfaces.IService;
 using PlayBook.Domain;
 
-namespace PlayBook.Business.Services.Implementations;
+namespace PlayBook.Business.Implementations.Service;
 
 public sealed class PricingCalculator : IPricingService
 {

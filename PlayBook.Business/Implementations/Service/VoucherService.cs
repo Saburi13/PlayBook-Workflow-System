@@ -1,7 +1,7 @@
 using PlayBook.Domain;
-using PlayBook.Business.Services.Interfaces;
+using PlayBook.Business.Interfaces.IService;
 
-namespace PlayBook.Business.Services.Implementations;
+namespace PlayBook.Business.Implementations.Service;
 
 public sealed record VoucherValidationResult(bool IsValid, string? Error, PricingVoucher? Voucher);
 

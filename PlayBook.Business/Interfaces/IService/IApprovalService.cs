@@ -1,6 +1,7 @@
-﻿using PlayBook.Business.DTOs.Approval;
+﻿using PlayBook.Business.BusinessModels.RequestDTOs.ApprovalRequestDTOs;
+using PlayBook.Business.BusinessModels.ResponseDTOs.ApprovalResponseDTOs;
 
-namespace PlayBook.Business.Services.Interfaces;
+namespace PlayBook.Business.Interfaces.IService;
 
 public interface IApprovalService
 {

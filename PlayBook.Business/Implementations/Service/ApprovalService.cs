@@ -1,9 +1,10 @@
-using PlayBook.Business.DTOs.Approval;
-using PlayBook.Business.Services.Interfaces;
+using PlayBook.Business.BusinessModels.RequestDTOs.ApprovalRequestDTOs;
+using PlayBook.Business.BusinessModels.ResponseDTOs.ApprovalResponseDTOs;
+using PlayBook.Business.Interfaces.IService;
 using PlayBook.Data.Repositories.Interfaces;
 using PlayBook.Domain;
 
-namespace PlayBook.Business.Services.Implementations;
+namespace PlayBook.Business.Implementations.Service;
 
 public sealed class ApprovalService(
     IApprovalRepository approvalRepository) : IApprovalService

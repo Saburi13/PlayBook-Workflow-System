@@ -5,10 +5,9 @@ using PlayBook.Data.Context;
 using PlayBook.Data.Repositories.Interfaces;
 using PlayBook.Data.Repositories.Implementations;
 
-using PlayBook.Business.Services.Interfaces;
-using PlayBook.Business.Services.Implementations;
-
 using PlayBook.Infrastructure.Workflows;
+using PlayBook.Business.Implementations.Service;
+using PlayBook.Business.Interfaces.IService;
 
 namespace PlayBook.Infrastructure.Extensions;
 
@@ -30,13 +29,20 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IConditionEvaluator, ConditionEvaluator>();
         services.AddScoped(typeof(ICrmRepository<>), typeof(CrmRepository<>));
         services.AddScoped<IWorkflowExecutionService, WorkflowExecutionService>();
+        services.AddScoped<IWorkflowExecutionRepository, WorkflowExecutionRepository>();
         services.AddScoped<IApprovalRepository, ApprovalRepository>();
         services.AddScoped<IApprovalService, ApprovalService>();
         services.AddSingleton<IPricingService, PricingCalculator>();
         services.AddSingleton<VoucherService>();
         services.AddScoped<RenewalProcessor>();
+        services.AddScoped<IWorkflowService, WorkflowService>();
         services.AddOptions<RenewalSchedulerOptions>();
         services.AddHostedService<RenewalScheduler>();
+        services.AddScoped<ICrmService, CrmService>();
+        services.AddScoped<ICrmDataRepository, CrmDataRepository>();
+        services.AddScoped<IWorkflowRepository, WorkflowRepository>();
+        services.AddScoped<IWorkflowService, WorkflowService>();
+        services.AddScoped<IWorkflowRepository, WorkflowRepository>();
 
         return services;
     }

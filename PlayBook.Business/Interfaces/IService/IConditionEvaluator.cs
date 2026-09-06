@@ -1,4 +1,4 @@
-namespace PlayBook.Business.Services.Interfaces;
+namespace PlayBook.Business.Interfaces.IService;
 
 public interface IConditionEvaluator
 {

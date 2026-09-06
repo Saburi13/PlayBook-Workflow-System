@@ -1,6 +1,7 @@
-using PlayBook.Business.Services.Implementations;
+using PlayBook.Business.Implementations.Service;
 using PlayBook.Domain;
-using PlayBook.Business.Services.Interfaces;
+using PlayBook.Business.Interfaces.IService;
+using PlayBook.Business.Implementations.Service;
 
 namespace PlayBook.Tests;
 

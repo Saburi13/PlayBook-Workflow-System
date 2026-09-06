@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
-using PlayBook.Business.DTOs.Approval;
-using PlayBook.Business.DTOs.Workflow;
-using PlayBook.Business.Services.Implementations;
-using PlayBook.Business.Services.Interfaces;
+using PlayBook.Business.BusinessModels.RequestDTOs.ApprovalRequestDTOs;
+using PlayBook.Business.BusinessModels.ResponseDTOs.ApprovalResponseDTOs;
+using PlayBook.Business.BusinessModels.RequestDTOs.WorkflowRequestDTOs;
+using PlayBook.Business.BusinessModels.ResponseDTOs.WorkflowResponseDTOs;
+using PlayBook.Business.Implementations.Service;
+using PlayBook.Business.Interfaces.IService;
 using PlayBook.Data.Context;
 using PlayBook.Domain;
 using PlayBook.Infrastructure.Workflows;
@@ -113,8 +115,11 @@ public sealed class ApprovalRoutingTests
         dbContext.PlayBooks.AddRange(matching, ignored);
         await dbContext.SaveChangesAsync();
 
-        var service = new WorkflowExecutionService(dbContext, new ConditionEvaluator(), new ApprovalService(new ApprovalRepository(dbContext)));
-
+        var service = new WorkflowExecutionService(
+    dbContext,
+    new WorkflowExecutionRepository(dbContext),
+    new ConditionEvaluator(),
+    new ApprovalService(new ApprovalRepository(dbContext)));
         var executions = await service.TriggerAsync("Opportunity Created", "Opportunity", Guid.NewGuid(), null);
 
         var execution = Assert.Single(executions);
@@ -146,8 +151,11 @@ public sealed class ApprovalRoutingTests
                 new { productId = products[1].Id, quantity = 1, unitPrice = 90m, discountPercentage = 5m },
             }
         });
-        var service = new WorkflowExecutionService(dbContext, new ConditionEvaluator(), new ApprovalService(new ApprovalRepository(dbContext)));
-
+        var service = new WorkflowExecutionService(
+    dbContext,
+    new WorkflowExecutionRepository(dbContext),
+    new ConditionEvaluator(),
+    new ApprovalService(new ApprovalRepository(dbContext)));
         await service.TriggerAsync("Opportunity Created", "Opportunity", opportunity.Id, eventPayload);
 
         var proposal = await dbContext.Proposals.Include(item => item.ProposalProducts).SingleAsync(item => item.OpportunityId == opportunity.Id);
@@ -171,7 +179,10 @@ public sealed class ApprovalRoutingTests
         var falseEnd = new PlayBookStep { Id = Guid.NewGuid(), Name = "Standard value", StepType = StepType.End, IsEndStep = true };
         var playBook = new PlayBook.Domain.PlayBook
         {
-            Id = Guid.NewGuid(), Name = "Branching flow", Status = PlayBookStatus.Active, TriggerType = TriggerType.Manual,
+            Id = Guid.NewGuid(),
+            Name = "Branching flow",
+            Status = PlayBookStatus.Active,
+            TriggerType = TriggerType.Manual,
             Steps = [start, condition, trueEnd, falseEnd],
             Transitions =
             [
@@ -183,8 +194,11 @@ public sealed class ApprovalRoutingTests
         dbContext.PlayBooks.Add(playBook);
         await dbContext.SaveChangesAsync();
 
-        var service = new WorkflowExecutionService(dbContext, new ConditionEvaluator(), new ApprovalService(new ApprovalRepository(dbContext)));
-
+        var service = new WorkflowExecutionService(
+            dbContext,
+            new WorkflowExecutionRepository(dbContext),
+            new ConditionEvaluator(),
+            new ApprovalService(new ApprovalRepository(dbContext)));
         var execution = await service.StartAsync(new StartWorkflowRequest(playBook.Id, "Opportunity", Guid.NewGuid(), JsonSerializer.SerializeToElement(new { amount = 150 })));
 
         Assert.Equal(WorkflowStatus.Completed, execution.Status);
@@ -347,8 +361,11 @@ public sealed class ApprovalRoutingTests
         dbContext.WorkflowExecutions.Add(execution);
         await dbContext.SaveChangesAsync();
 
-        var service = new WorkflowExecutionService(dbContext, new ConditionEvaluator(), new ApprovalService(new ApprovalRepository(dbContext)));
-
+        var service = new WorkflowExecutionService(
+            dbContext,
+            new WorkflowExecutionRepository(dbContext),
+            new ConditionEvaluator(),
+            new ApprovalService(new ApprovalRepository(dbContext)));
         var result = await service.ResumeAsync(execution.Id, new { decision = "Approved" });
 
         Assert.Equal(ProposalStatus.CustomerApproved, proposal.Status);
@@ -434,8 +451,11 @@ public sealed class ApprovalRoutingTests
         dbContext.WorkflowExecutions.Add(execution);
         await dbContext.SaveChangesAsync();
 
-        var service = new WorkflowExecutionService(dbContext, new ConditionEvaluator(), new ApprovalService(new ApprovalRepository(dbContext)));
-
+        var service = new WorkflowExecutionService(
+            dbContext,
+            new WorkflowExecutionRepository(dbContext),
+            new ConditionEvaluator(),
+            new ApprovalService(new ApprovalRepository(dbContext)));
         await service.ResumeAsync(execution.Id, new { decision = "Approved" });
 
         var createdOrder = await dbContext.Orders.SingleOrDefaultAsync(o => o.ProposalId == proposal.Id);
@@ -524,8 +544,11 @@ public sealed class ApprovalRoutingTests
         dbContext.WorkflowExecutions.Add(execution);
         await dbContext.SaveChangesAsync();
 
-        var service = new WorkflowExecutionService(dbContext, new ConditionEvaluator(), new ApprovalService(new ApprovalRepository(dbContext)));
-
+        var service = new WorkflowExecutionService(
+            dbContext,
+            new WorkflowExecutionRepository(dbContext),
+            new ConditionEvaluator(),
+            new ApprovalService(new ApprovalRepository(dbContext)));
         await service.ResumeAsync(execution.Id, new { decision = "Rejected" });
 
         Assert.Equal(ProposalStatus.CustomerRejected, proposal.Status);
@@ -629,8 +652,11 @@ public sealed class ApprovalRoutingTests
         dbContext.WorkflowExecutions.Add(execution);
         await dbContext.SaveChangesAsync();
 
-        var service = new WorkflowExecutionService(dbContext, new ConditionEvaluator(), new ApprovalService(new ApprovalRepository(dbContext)));
-
+        var service = new WorkflowExecutionService(
+            dbContext,
+            new WorkflowExecutionRepository(dbContext),
+            new ConditionEvaluator(),
+            new ApprovalService(new ApprovalRepository(dbContext)));
         await service.ResumeAsync(execution.Id, new { decision = "Approved" });
 
         var subscriptions = await dbContext.Subscriptions.Where(s => s.CustomerId == customer.Id).ToListAsync();
@@ -747,8 +773,11 @@ public sealed class ApprovalRoutingTests
         dbContext.WorkflowExecutions.Add(execution);
         await dbContext.SaveChangesAsync();
 
-        var service = new WorkflowExecutionService(dbContext, new ConditionEvaluator(), new ApprovalService(new ApprovalRepository(dbContext)));
-
+        var service = new WorkflowExecutionService(
+            dbContext,
+            new WorkflowExecutionRepository(dbContext),
+            new ConditionEvaluator(),
+            new ApprovalService(new ApprovalRepository(dbContext)));
         await service.ResumeAsync(execution.Id, new { decision = "Approved" });
 
         var activeSubscriptions = await dbContext.Subscriptions
@@ -902,8 +931,11 @@ public sealed class ApprovalRoutingTests
         var playBook = new PlayBook.Domain.PlayBook { Id = Guid.NewGuid(), Name = "Employee trigger", Status = PlayBookStatus.Active, TriggerType = TriggerType.Event, Steps = [start, end], Transitions = [new WorkflowTransition { Id = Guid.NewGuid(), FromStepId = start.Id, ToStepId = end.Id }] };
         dbContext.PlayBooks.Add(playBook);
         await dbContext.SaveChangesAsync();
-        var service = new WorkflowExecutionService(dbContext, new ConditionEvaluator(), new ApprovalService(new ApprovalRepository(dbContext)));
-
+        var service = new WorkflowExecutionService(
+            dbContext,
+            new WorkflowExecutionRepository(dbContext),
+            new ConditionEvaluator(),
+            new ApprovalService(new ApprovalRepository(dbContext)));
         var matching = await service.TriggerAsync("Opportunity Created", "Opportunity", opportunity.Id, null);
         var nonMatching = await service.TriggerAsync("Opportunity Created", "Opportunity", otherOpportunity.Id, null);
 
@@ -923,8 +955,13 @@ public sealed class ApprovalRoutingTests
         dbContext.Products.Add(product);
         dbContext.Subscriptions.Add(new Subscription { Id = Guid.NewGuid(), CustomerId = customer.Id, ProductId = product.Id, StartDate = now.AddMonths(-6), EndDate = now.AddDays(60), Amount = 100m });
         await dbContext.SaveChangesAsync();
-        var service = new WorkflowExecutionService(dbContext, new ConditionEvaluator(), new ApprovalService(new ApprovalRepository(dbContext)));
-        var processor = new RenewalProcessor(dbContext, service);
+        var service = new WorkflowExecutionService(
+            dbContext,
+            new WorkflowExecutionRepository(dbContext),
+            new ConditionEvaluator(),
+            new ApprovalService(new ApprovalRepository(dbContext))); var processor = new RenewalProcessor(
+    new WorkflowExecutionRepository(dbContext),
+    service);
 
         var firstRun = await processor.ProcessAsync(now, [90, 60, 30]);
         var secondRun = await processor.ProcessAsync(now, [90, 60, 30]);

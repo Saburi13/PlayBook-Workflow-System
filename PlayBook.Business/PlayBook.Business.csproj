@@ -13,11 +13,16 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="DTOs\Pricing\" />
+    <Folder Include="BusinessModels\Approval\" />
+    <Folder Include="BusinessModels\CRM\" />
+    <Folder Include="BusinessModels\Pricing\" />
+    <Folder Include="BusinessModels\Workflow\" />
     <Folder Include="Helpers\" />
+    <Folder Include="Services\Implementations\" />
+    <Folder Include="Services\Interfaces\" />
     <Folder Include="Utilities\" />
-    <Folder Include="Validators\Interfaces\" />
-    <Folder Include="Validators\Implementations\" />
+    <Folder Include="Validations\Interfaces\" />
+    <Folder Include="Validations\Implementations\" />
   </ItemGroup>
 
 </Project>
