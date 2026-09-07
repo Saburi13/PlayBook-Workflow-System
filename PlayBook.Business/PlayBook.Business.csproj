@@ -9,7 +9,6 @@
   <ItemGroup>
     <ProjectReference Include="..\PlayBook.Common\PlayBook.Common.csproj" />
     <ProjectReference Include="..\PlayBook.Data\PlayBook.Data.csproj" />
-    <ProjectReference Include="..\PlayBook.Domain\PlayBook.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>

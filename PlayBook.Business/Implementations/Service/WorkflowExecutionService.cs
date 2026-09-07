@@ -11,7 +11,7 @@ using PlayBook.Domain;
 using System.Globalization;
 using System.Text.Json;
 
-namespace PlayBook.Infrastructure.Workflows;
+namespace PlayBook.Business.Implementations.Service;
 
 public sealed class WorkflowExecutionService(
     PlayBookDbContext dbContext,

@@ -1,15 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-
+using PlayBook.API.BackgroundServices;
 using PlayBook.Data.Context;
 using PlayBook.Data.Repositories.Interfaces;
 using PlayBook.Data.Repositories.Implementations;
 
-using PlayBook.Infrastructure.Workflows;
 using PlayBook.Business.Implementations.Service;
 using PlayBook.Business.Interfaces.IService;
 
-namespace PlayBook.Infrastructure.Extensions;
+namespace PlayBook.API.Extensions;
 
 public static class ServiceCollectionExtensions
 {

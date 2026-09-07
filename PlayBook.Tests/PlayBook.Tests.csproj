@@ -20,8 +20,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\PlayBook.Application\PlayBook.Application.csproj" />
-    <ProjectReference Include="..\PlayBook.Infrastructure\PlayBook.Infrastructure.csproj" />
+	<ProjectReference Include="..\PlayBook.Business\PlayBook.Business.csproj" />
+	<ProjectReference Include="..\PlayBook.Data\PlayBook.Data.csproj" />
+	<ProjectReference Include="..\PlayBook.Common\PlayBook.Common.csproj" />
   </ItemGroup>
 
 </Project>

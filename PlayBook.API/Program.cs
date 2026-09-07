@@ -5,11 +5,12 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PlayBook.Data.Context;
-using PlayBook.Infrastructure.Extensions;
-using PlayBook.Infrastructure.Workflows;
+using PlayBook.API.Extensions;
+using PlayBook.API.BackgroundServices;
 using Serilog;
 using System.Text;
 using PlayBook.Data.Seed;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
