@@ -12,8 +12,8 @@ using PlayBook.Data.Context;
 namespace PlayBook.Data.Migrations
 {
     [DbContext(typeof(PlayBookDbContext))]
-    [Migration("20260827185446_ApprovalRevisionAndLineDiscountValue")]
-    partial class ApprovalRevisionAndLineDiscountValue
+    [Migration("20260908193347_AMSDomainModels")]
+    partial class AMSDomainModels
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -223,6 +223,226 @@ namespace PlayBook.Data.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("PlayBook.Domain.Account", b =>
+                {
+                    b.Property<string>("AccountId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("AccountManagerId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AccountName")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("AccountProfileImg")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("AccountSince")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("AccountTypesId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AutoGenrateAccountId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ConvertCurrencySymbol")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DefaultCurrencySymbol")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("EmployeeCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("IncorporationDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("IndustryTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("KeyAccount")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastUpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ParentAccountId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("ReferralAccountContactsId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReferralAccountId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("RegionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RegisteredMobileNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SecondMobileNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Website")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("AccountId");
+
+                    b.HasIndex("AccountName");
+
+                    b.HasIndex("Email");
+
+                    b.ToTable("Accounts");
+                });
+
+            modelBuilder.Entity("PlayBook.Domain.AccountAddress", b =>
+                {
+                    b.Property<Guid>("AccountAddressId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("AddressLine")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("City")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Country")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastUpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("MapUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Pincode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("PrimaryAddress")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("State")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("AccountAddressId");
+
+                    b.HasIndex("AccountId");
+
+                    b.ToTable("AccountAddresses");
+                });
+
+            modelBuilder.Entity("PlayBook.Domain.AccountAddressType", b =>
+                {
+                    b.Property<Guid>("AccountAddressId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AddressType")
+                        .HasColumnType("int");
+
+                    b.HasKey("AccountAddressId", "AddressType");
+
+                    b.ToTable("AccountAddressTypes");
+                });
+
+            modelBuilder.Entity("PlayBook.Domain.AccountContacts", b =>
+                {
+                    b.Property<Guid>("AccountContactsId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Department")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Designation")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FirstName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LastName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("LastUpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LinkedInProfile")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MobileNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("AccountContactsId");
+
+                    b.HasIndex("AccountId");
+
+                    b.ToTable("AccountContacts");
+                });
+
             modelBuilder.Entity("PlayBook.Domain.Approval", b =>
                 {
                     b.Property<Guid>("Id")
@@ -356,24 +576,69 @@ namespace PlayBook.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AccountProfileImg")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("AccountSince")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Address")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AutoGenrateAccountId")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Company")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ConvertCurrencySymbol")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CurrencyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DefaultCurrencySymbol")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Email")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EmployeeCount")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("IncorporationDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("KeyAccount")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("ParentAccountId")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Phone")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ReferralAccountId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("RegionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RegisteredMobileNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SecondMobileNumber")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")
@@ -382,6 +647,9 @@ namespace PlayBook.Data.Migrations
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("Website")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -540,14 +808,44 @@ namespace PlayBook.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AccountId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("AccountManagerId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AccountManagerSnapshotSource")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid?>("AssignedEmployeeId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AutoGenratedId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ClosedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CompletedStatus")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("ContactPersonId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ConvertCurrencySymbol")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DefaultCurrencySymbol")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
@@ -555,7 +853,55 @@ namespace PlayBook.Data.Migrations
                     b.Property<decimal>("EstimatedValue")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal?>("ExchangeRateApplied")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ExpansionTypesSummary")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime?>("ExpectedCloseDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpectedClosureDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("HasCustomProducts")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsClosed")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("IsContractionOpportunity")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("IsCreatedFromQbr")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("IsExpansionOpportunity")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsLost")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("IsLostDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsPackageModified")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("IsReactivation")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsReferral")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsRenewal")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("LastUpdatedDate")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Name")
@@ -563,15 +909,52 @@ namespace PlayBook.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<decimal?>("NetAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("NetAmountInDefaultCurrency")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("OpportunityAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("OpportunityAmountInDefaultCurrency")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("OpportunityName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("OverAllDiscountPercentage")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("PackageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ProposalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("SourceQbrId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
+
+                    b.Property<decimal?>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("TaxAmountInDefaultCurrency")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AccountId");
+
                     b.HasIndex("AssignedEmployeeId");
+
+                    b.HasIndex("ContactPersonId");
 
                     b.HasIndex("CustomerId", "Status");
 
@@ -584,8 +967,29 @@ namespace PlayBook.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AccountId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("AccountManagerId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AccountManagerSnapshotSource")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AmsOrderStatus")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid?>("AssignedEmployeeId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AutoGenratedId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("ContactPersonId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ConvertCurrencySymbol")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -593,22 +997,88 @@ namespace PlayBook.Data.Migrations
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("DefaultCurrencySymbol")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("ExchangeRateApplied")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ExpansionTypesSummary")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("HasCustomProducts")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("IsContractionOpportunity")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("IsExpansionOpportunity")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsOldPurchase")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPackageModified")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("IsReactivation")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("LastUpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("NetAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("NetAmountInDefaultCurrency")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("OpportunityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("OrderAmountInDefaultCurrency")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("OrderDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("OrderDiscountPercentage")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("OrderNumber")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<bool>("OrderStatusInBool")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("PackageId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ProposalId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal?>("PurchaseAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
+
+                    b.Property<decimal?>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("TaxAmountInDefaultCurrency")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("TotalAmount")
                         .HasColumnType("decimal(18,2)");
@@ -618,9 +1088,15 @@ namespace PlayBook.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AccountId");
+
                     b.HasIndex("AssignedEmployeeId");
 
+                    b.HasIndex("ContactPersonId");
+
                     b.HasIndex("CustomerId");
+
+                    b.HasIndex("OpportunityId");
 
                     b.HasIndex("OrderNumber")
                         .IsUnique();
@@ -636,19 +1112,64 @@ namespace PlayBook.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AccountId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ConvertCurrencySymbol")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("ConvertedOpportunityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("DefaultCurrencySymbol")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("Discount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal?>("DiscountPercentage")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("DiscountedRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("DurationType")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ExtendedGraceDays")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsConvertedRenewalToOpportunity")
+                        .HasColumnType("bit");
+
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool?>("OrderStatus")
+                        .HasColumnType("bit");
 
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal?>("ProductTotalAmountInDefaultCurrency")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("RenewalDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("Term")
                         .HasColumnType("int");
 
                     b.Property<decimal>("TotalPrice")
@@ -660,7 +1181,14 @@ namespace PlayBook.Data.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("ValidityDuration")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("ConvertedOpportunityId");
 
                     b.HasIndex("ProductId");
 
@@ -762,6 +1290,9 @@ namespace PlayBook.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AutoGenratedProductId")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Category")
                         .HasColumnType("nvarchar(max)");
 
@@ -771,8 +1302,23 @@ namespace PlayBook.Data.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("DurationType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsFlexPrice")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LongDescription")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -786,8 +1332,20 @@ namespace PlayBook.Data.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("ProductCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ShortDescription")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("Status")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int>("ValidityDuration")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -1287,6 +1845,39 @@ namespace PlayBook.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("PlayBook.Domain.AccountAddress", b =>
+                {
+                    b.HasOne("PlayBook.Domain.Account", "Account")
+                        .WithMany("Addresses")
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+                });
+
+            modelBuilder.Entity("PlayBook.Domain.AccountAddressType", b =>
+                {
+                    b.HasOne("PlayBook.Domain.AccountAddress", "AccountAddress")
+                        .WithMany("AddressTypes")
+                        .HasForeignKey("AccountAddressId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AccountAddress");
+                });
+
+            modelBuilder.Entity("PlayBook.Domain.AccountContacts", b =>
+                {
+                    b.HasOne("PlayBook.Domain.Account", "Account")
+                        .WithMany("Contacts")
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+                });
+
             modelBuilder.Entity("PlayBook.Domain.Approval", b =>
                 {
                     b.HasOne("PlayBook.Domain.Employee", "ApproverEmployee")
@@ -1409,9 +2000,19 @@ namespace PlayBook.Data.Migrations
 
             modelBuilder.Entity("PlayBook.Domain.Opportunity", b =>
                 {
+                    b.HasOne("PlayBook.Domain.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("PlayBook.Domain.Employee", "AssignedEmployee")
                         .WithMany("Opportunities")
                         .HasForeignKey("AssignedEmployeeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("PlayBook.Domain.AccountContacts", "ContactPerson")
+                        .WithMany()
+                        .HasForeignKey("ContactPersonId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("PlayBook.Domain.Customer", "Customer")
@@ -1420,16 +2021,30 @@ namespace PlayBook.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("Account");
+
                     b.Navigation("AssignedEmployee");
+
+                    b.Navigation("ContactPerson");
 
                     b.Navigation("Customer");
                 });
 
             modelBuilder.Entity("PlayBook.Domain.Order", b =>
                 {
+                    b.HasOne("PlayBook.Domain.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("PlayBook.Domain.Employee", "AssignedEmployee")
                         .WithMany()
                         .HasForeignKey("AssignedEmployeeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("PlayBook.Domain.AccountContacts", "ContactPerson")
+                        .WithMany()
+                        .HasForeignKey("ContactPersonId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("PlayBook.Domain.Customer", "Customer")
@@ -1437,6 +2052,11 @@ namespace PlayBook.Data.Migrations
                         .HasForeignKey("CustomerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("PlayBook.Domain.Opportunity", "Opportunity")
+                        .WithMany("Orders")
+                        .HasForeignKey("OpportunityId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("PlayBook.Domain.Proposal", "Proposal")
                         .WithMany("Orders")
@@ -1444,15 +2064,31 @@ namespace PlayBook.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("Account");
+
                     b.Navigation("AssignedEmployee");
 
+                    b.Navigation("ContactPerson");
+
                     b.Navigation("Customer");
+
+                    b.Navigation("Opportunity");
 
                     b.Navigation("Proposal");
                 });
 
             modelBuilder.Entity("PlayBook.Domain.OrderProduct", b =>
                 {
+                    b.HasOne("PlayBook.Domain.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("PlayBook.Domain.Opportunity", "ConvertedOpportunity")
+                        .WithMany()
+                        .HasForeignKey("ConvertedOpportunityId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("PlayBook.Domain.Order", "Order")
                         .WithMany("OrderProducts")
                         .HasForeignKey("OrderId")
@@ -1464,6 +2100,10 @@ namespace PlayBook.Data.Migrations
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("ConvertedOpportunity");
 
                     b.Navigation("Order");
 
@@ -1635,6 +2275,18 @@ namespace PlayBook.Data.Migrations
                     b.Navigation("ToStep");
                 });
 
+            modelBuilder.Entity("PlayBook.Domain.Account", b =>
+                {
+                    b.Navigation("Addresses");
+
+                    b.Navigation("Contacts");
+                });
+
+            modelBuilder.Entity("PlayBook.Domain.AccountAddress", b =>
+                {
+                    b.Navigation("AddressTypes");
+                });
+
             modelBuilder.Entity("PlayBook.Domain.Condition", b =>
                 {
                     b.Navigation("WorkflowTransitions");
@@ -1674,6 +2326,8 @@ namespace PlayBook.Data.Migrations
                     b.Navigation("Activities");
 
                     b.Navigation("Conversations");
+
+                    b.Navigation("Orders");
 
                     b.Navigation("Proposals");
                 });

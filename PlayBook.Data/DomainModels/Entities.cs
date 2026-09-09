@@ -22,7 +22,8 @@ public class EmployeeGrade : AuditableEntity
 
     public bool IsActive { get; set; } = true;
 
-    public ICollection<Employee> Employees { get; set; } = new List<Employee>();
+    public ICollection<Employee> Employees { get; set; } =
+        new List<Employee>();
 }
 
 public class Employee : AuditableEntity
@@ -52,11 +53,14 @@ public class Employee : AuditableEntity
 
     public Employee? Manager { get; set; }
 
-    public ICollection<Employee> DirectReports { get; set; } = new List<Employee>();
+    public ICollection<Employee> DirectReports { get; set; } =
+        new List<Employee>();
 
-    public ICollection<Opportunity> Opportunities { get; set; } = new List<Opportunity>();
+    public ICollection<Opportunity> Opportunities { get; set; } =
+        new List<Opportunity>();
 
-    public ICollection<Proposal> Proposals { get; set; } = new List<Proposal>();
+    public ICollection<Proposal> Proposals { get; set; } =
+        new List<Proposal>();
 }
 
 public class Customer : AuditableEntity
@@ -77,22 +81,76 @@ public class Customer : AuditableEntity
 
     public string Status { get; set; } = "Active";
 
-    public ICollection<Opportunity> Opportunities { get; set; } = new List<Opportunity>();
+    // =========================================================
+    // AMS Account fields
+    // =========================================================
 
-    public ICollection<Proposal> Proposals { get; set; } = new List<Proposal>();
+    public string? AutoGenrateAccountId { get; set; }
 
-    public ICollection<Order> Orders { get; set; } = new List<Order>();
+    public string? RegisteredMobileNumber { get; set; }
 
-    public ICollection<EngagementActivity> Activities { get; set; } = new List<EngagementActivity>();
+    public string? SecondMobileNumber { get; set; }
 
-    public ICollection<Conversation> Conversations { get; set; } = new List<Conversation>();
+    public string? Website { get; set; }
 
-    public ICollection<Subscription> Subscriptions { get; set; } = new List<Subscription>();
+    public string? AccountProfileImg { get; set; }
+
+    public bool IsDeleted { get; set; } = false;
+
+    public DateTime? IncorporationDate { get; set; }
+
+    public DateTime? AccountSince { get; set; }
+
+    public string? EmployeeCount { get; set; }
+
+    public bool KeyAccount { get; set; } = false;
+
+    public string? ReferralAccountId { get; set; }
+
+    public string? ParentAccountId { get; set; }
+
+    public Guid? RegionId { get; set; }
+
+    public Guid? CurrencyId { get; set; }
+
+    public string? DefaultCurrencySymbol { get; set; }
+
+    public string? ConvertCurrencySymbol { get; set; }
+
+    // =========================================================
+    // Existing PlayBook relationships
+    // =========================================================
+
+    public ICollection<Opportunity> Opportunities { get; set; } =
+        new List<Opportunity>();
+
+    public ICollection<Proposal> Proposals { get; set; } =
+        new List<Proposal>();
+
+    public ICollection<Order> Orders { get; set; } =
+        new List<Order>();
+
+    public ICollection<EngagementActivity> Activities { get; set; } =
+        new List<EngagementActivity>();
+
+    public ICollection<Conversation> Conversations { get; set; } =
+        new List<Conversation>();
+
+    public ICollection<Subscription> Subscriptions { get; set; } =
+        new List<Subscription>();
+
 }
+
+
+
 
 public class Product : AuditableEntity
 {
     public Guid Id { get; set; }
+
+    // =========================================================
+    // Existing PlayBook fields
+    // =========================================================
 
     [Required, MaxLength(200)]
     public string Name { get; set; } = string.Empty;
@@ -108,6 +166,34 @@ public class Product : AuditableEntity
 
     public bool IsActive { get; set; } = true;
 
+    // =========================================================
+    // AMS Product fields
+    // =========================================================
+
+    public string? ProductCode { get; set; }
+
+    public string? AutoGenratedProductId { get; set; }
+
+    public string? ShortDescription { get; set; }
+
+    public string? LongDescription { get; set; }
+
+    public string? ImageUrl { get; set; }
+
+    public bool IsFlexPrice { get; set; } = false;
+
+    public bool IsDeleted { get; set; } = false;
+
+    public bool Status { get; set; } = true;
+
+    public DurationType DurationType { get; set; }
+
+    public int ValidityDuration { get; set; }
+
+    // =========================================================
+    // Existing relationships
+    // =========================================================
+
     public ICollection<ProposalProduct> ProposalProducts { get; set; } =
         new List<ProposalProduct>();
 
@@ -122,9 +208,24 @@ public class Opportunity : AuditableEntity
 {
     public Guid Id { get; set; }
 
+    // =========================================================
+    // Existing PlayBook fields
+    // =========================================================
+
     public Guid CustomerId { get; set; }
 
+    [ForeignKey(nameof(CustomerId))]
+    public Customer Customer { get; set; } = null!;
+
+    public string? AccountId { get; set; }
+
+    [ForeignKey(nameof(AccountId))]
+    public Account? Account { get; set; }
+
     public Guid? AssignedEmployeeId { get; set; }
+
+    [ForeignKey(nameof(AssignedEmployeeId))]
+    public Employee? AssignedEmployee { get; set; }
 
     [Required, MaxLength(200)]
     public string Name { get; set; } = string.Empty;
@@ -138,12 +239,99 @@ public class Opportunity : AuditableEntity
 
     public DateTime? ExpectedCloseDate { get; set; }
 
-    public Customer Customer { get; set; } = null!;
+    // =========================================================
+    // AMS Opportunity fields
+    // =========================================================
 
-    public Employee? AssignedEmployee { get; set; }
+    public string? AutoGenratedId { get; set; }
+
+    public Guid? ContactPersonId { get; set; }
+
+    [ForeignKey(nameof(ContactPersonId))]
+    public AccountContacts? ContactPerson { get; set; }
+
+    public DateTime ExpectedClosureDate { get; set; }
+
+    public string? OpportunityName { get; set; }
+
+    public DateTime CreatedDate { get; set; }
+
+    public DateTime LastUpdatedDate { get; set; }
+
+    public Guid? ProposalId { get; set; }
+
+    public bool IsClosed { get; set; } = false;
+
+    public bool IsLost { get; set; } = false;
+
+    public DateTime? IsLostDate { get; set; }
+
+    public string? CompletedStatus { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? OpportunityAmount { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? OverAllDiscountPercentage { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? NetAmount { get; set; }
+
+    public bool IsRenewal { get; set; } = false;
+
+    public bool IsReferral { get; set; } = false;
+
+    public DateTime? ClosedDate { get; set; }
+
+    public decimal? OpportunityAmountInDefaultCurrency { get; set; }
+
+    public decimal? NetAmountInDefaultCurrency { get; set; }
+
+    public decimal? ExchangeRateApplied { get; set; }
+
+    public string? DefaultCurrencySymbol { get; set; }
+
+    public string? ConvertCurrencySymbol { get; set; }
+
+    public bool? IsExpansionOpportunity { get; set; }
+
+    public bool? IsContractionOpportunity { get; set; }
+
+    public bool? IsReactivation { get; set; }
+
+    public string? ExpansionTypesSummary { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? TaxAmount { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? TaxAmountInDefaultCurrency { get; set; }
+
+    public bool IsDeleted { get; set; } = false;
+
+    public Guid? PackageId { get; set; }
+
+    public bool IsPackageModified { get; set; } = false;
+
+    public bool HasCustomProducts { get; set; } = false;
+
+    public bool? IsCreatedFromQbr { get; set; } = false;
+
+    public Guid? SourceQbrId { get; set; }
+
+    public string? AccountManagerId { get; set; }
+
+    public string? AccountManagerSnapshotSource { get; set; }
+
+    // =========================================================
+    // Existing / AMS relationships
+    // =========================================================
 
     public ICollection<Proposal> Proposals { get; set; } =
         new List<Proposal>();
+
+    public ICollection<Order> Orders { get; set; } =
+        new List<Order>();
 
     public ICollection<EngagementActivity> Activities { get; set; } =
         new List<EngagementActivity>();
@@ -230,7 +418,8 @@ public class ProposalProduct : AuditableEntity
     [Column(TypeName = "decimal(18,2)")]
     public decimal TotalPrice { get; set; }
 
-    public DiscountType DiscountType { get; set; } = DiscountType.Percentage;
+    public DiscountType DiscountType { get; set; } =
+        DiscountType.Percentage;
 
     public decimal DiscountValue { get; set; }
 
@@ -257,15 +446,96 @@ public class Order : AuditableEntity
     [Column(TypeName = "decimal(18,2)")]
     public decimal TotalAmount { get; set; }
 
+    [Column(TypeName = "decimal(18,2)")]
     public decimal DiscountAmount { get; set; }
 
     public DateTime OrderDate { get; set; } = DateTime.UtcNow;
+
+    // =========================================================
+    // AMS Order fields
+    // =========================================================
+
+    public string? AutoGenratedId { get; set; }
+
+    public Guid? OpportunityId { get; set; }
+
+    public Guid? ContactPersonId { get; set; }
+
+    [ForeignKey(nameof(ContactPersonId))]
+    public AccountContacts? ContactPerson { get; set; }
+
+    public string? Description { get; set; }
+
+    public DateTime LastUpdatedDate { get; set; } = DateTime.UtcNow;
+
+    public bool OrderStatusInBool { get; set; } = false;
+
+    public string? AmsOrderStatus { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? OrderDiscountPercentage { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? PurchaseAmount { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? NetAmount { get; set; }
+
+    public bool IsOldPurchase { get; set; } = false;
+
+    public decimal? OrderAmountInDefaultCurrency { get; set; }
+
+    public decimal? NetAmountInDefaultCurrency { get; set; }
+
+    public decimal? ExchangeRateApplied { get; set; }
+
+    public string? DefaultCurrencySymbol { get; set; }
+
+    public string? ConvertCurrencySymbol { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? TaxAmount { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? TaxAmountInDefaultCurrency { get; set; }
+
+    public bool IsDeleted { get; set; } = false;
+
+    public Guid? PackageId { get; set; }
+
+    public bool IsPackageModified { get; set; } = false;
+
+    public bool HasCustomProducts { get; set; } = false;
+
+    public bool? IsExpansionOpportunity { get; set; }
+
+    public bool? IsContractionOpportunity { get; set; }
+
+    public bool? IsReactivation { get; set; }
+
+    public string? ExpansionTypesSummary { get; set; }
+
+    public string? AccountManagerId { get; set; }
+
+    public string? AccountManagerSnapshotSource { get; set; }
+
+    // =========================================================
+    // Relationships
+    // =========================================================
 
     public Proposal Proposal { get; set; } = null!;
 
     public Customer Customer { get; set; } = null!;
 
+    public string? AccountId { get; set; }
+
+    [ForeignKey(nameof(AccountId))]
+    public Account? Account { get; set; }
+
     public Employee? AssignedEmployee { get; set; }
+
+    [ForeignKey(nameof(OpportunityId))]
+    public Opportunity? Opportunity { get; set; }
 
     public ICollection<OrderProduct> OrderProducts { get; set; } =
         new List<OrderProduct>();
@@ -290,8 +560,57 @@ public class OrderProduct : AuditableEntity
     [Column(TypeName = "decimal(18,2)")]
     public decimal TotalPrice { get; set; }
 
+    // =========================================================
+    // AMS OrderProducts fields
+    // =========================================================
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? DiscountPercentage { get; set; }
+
+    public int? Term { get; set; }
+
+    public decimal? DiscountedRate { get; set; }
+
+    public DurationType DurationType { get; set; }
+
+    public int ValidityDuration { get; set; }
+
+    public DateTime CreateDate { get; set; }
+
+    public DateTime? StartDate { get; set; }
+
+    public DateTime? RenewalDate { get; set; }
+
+    public string? AccountId { get; set; }
+
+    [ForeignKey(nameof(AccountId))]
+    public Account? Account { get; set; }
+
+    public bool? OrderStatus { get; set; } = false;
+
+    public decimal? ProductTotalAmountInDefaultCurrency { get; set; }
+
+    public string? DefaultCurrencySymbol { get; set; }
+
+    public string? ConvertCurrencySymbol { get; set; }
+
+    public bool IsConvertedRenewalToOpportunity { get; set; } = false;
+
+    public Guid? ConvertedOpportunityId { get; set; }
+
+    [ForeignKey(nameof(ConvertedOpportunityId))]
+    public Opportunity? ConvertedOpportunity { get; set; }
+
+    public int? ExtendedGraceDays { get; set; } = 0;
+
+    // =========================================================
+    // Existing relationships
+    // =========================================================
+
+    [ForeignKey(nameof(OrderId))]
     public Order Order { get; set; } = null!;
 
+    [ForeignKey(nameof(ProductId))]
     public Product Product { get; set; } = null!;
 }
 
@@ -415,7 +734,8 @@ public class WorkflowExecution : AuditableEntity
 
     public Guid? CurrentStepId { get; set; }
 
-    public WorkflowStatus Status { get; set; } = WorkflowStatus.Running;
+    public WorkflowStatus Status { get; set; } =
+        WorkflowStatus.Running;
 
     public DateTime StartedAt { get; set; } = DateTime.UtcNow;
 
@@ -440,7 +760,8 @@ public class WorkflowExecutionStep : AuditableEntity
 
     public Guid PlayBookStepId { get; set; }
 
-    public WorkflowStatus Status { get; set; } = WorkflowStatus.Running;
+    public WorkflowStatus Status { get; set; } =
+        WorkflowStatus.Running;
 
     public DateTime? StartedAt { get; set; }
 
@@ -486,7 +807,8 @@ public class Approval : AuditableEntity
 
     public int ApprovalLevel { get; set; }
 
-    public ApprovalStatus Status { get; set; } = ApprovalStatus.Pending;
+    public ApprovalStatus Status { get; set; } =
+        ApprovalStatus.Pending;
 
     public string? Comments { get; set; }
 
@@ -596,7 +918,8 @@ public class Subscription : AuditableEntity
     [Column(TypeName = "decimal(18,2)")]
     public decimal Amount { get; set; }
 
-    public SubscriptionStatus Status { get; set; } = SubscriptionStatus.Active;
+    public SubscriptionStatus Status { get; set; } =
+        SubscriptionStatus.Active;
 
     public Customer Customer { get; set; } = null!;
 
