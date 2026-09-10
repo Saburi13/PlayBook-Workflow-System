@@ -4,7 +4,6 @@ using PlayBook.API.BackgroundServices;
 using PlayBook.Data.Context;
 using PlayBook.Data.Repositories.Interfaces;
 using PlayBook.Data.Repositories.Implementations;
-
 using PlayBook.Business.Implementations.Service;
 using PlayBook.Business.Interfaces.IService;
 
@@ -42,6 +41,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWorkflowRepository, WorkflowRepository>();
         services.AddScoped<IWorkflowService, WorkflowService>();
         services.AddScoped<IWorkflowRepository, WorkflowRepository>();
+        services.AddScoped<IAccountRepository, AccountRepository>();
+        services.AddScoped<IAccountService, AccountService>();
 
         return services;
     }

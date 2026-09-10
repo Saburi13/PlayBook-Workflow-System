@@ -19,6 +19,60 @@ type CustomerSummary = {
   status?: string
 }
 
+const currencyOptions = [
+    { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
+    { code: 'USD', name: 'US Dollar', symbol: '$' },
+    { code: 'EUR', name: 'Euro', symbol: '€' },
+    { code: 'GBP', name: 'British Pound', symbol: '£' },
+    { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
+    { code: 'CNY', name: 'Chinese Yuan', symbol: '¥' },
+    { code: 'KRW', name: 'South Korean Won', symbol: '₩' },
+    { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
+    { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
+    { code: 'NZD', name: 'New Zealand Dollar', symbol: 'NZ$' },
+    { code: 'CHF', name: 'Swiss Franc', symbol: 'CHF' },
+    { code: 'SGD', name: 'Singapore Dollar', symbol: 'S$' },
+    { code: 'HKD', name: 'Hong Kong Dollar', symbol: 'HK$' },
+    { code: 'AED', name: 'UAE Dirham', symbol: 'د.إ' },
+    { code: 'THB', name: 'Thai Baht', symbol: '฿' },
+    { code: 'MYR', name: 'Malaysian Ringgit', symbol: 'RM' },
+    { code: 'IDR', name: 'Indonesian Rupiah', symbol: 'Rp' },
+    { code: 'PHP', name: 'Philippine Peso', symbol: '₱' },
+    { code: 'VND', name: 'Vietnamese Dong', symbol: '₫' },
+    { code: 'BDT', name: 'Bangladeshi Taka', symbol: '৳' },
+    { code: 'PKR', name: 'Pakistani Rupee', symbol: '₨' },
+    
+]
+
+type AccountSummary = {
+    accountId: string
+    autoGenrateAccountId?: string | null
+    accountName?: string | null
+    registeredMobileNumber?: string | null
+    secondMobileNumber?: string | null
+    website?: string | null
+    email?: string | null
+    accountProfileImg?: string | null
+    status?: string | null
+    isDeleted: boolean
+    incorporationDate?: string | null
+    accountSince?: string | null
+    employeeCount?: number | null
+    keyAccount: boolean
+    referralAccountId?: string | null
+    parentAccountId?: string | null
+    referralAccountContactsId?: string | null
+    accountTypesId?: string | null
+    industryTypeId?: string | null
+    regionId?: string | null
+    currencyId?: string | null
+    defaultCurrencySymbol?: string | null
+    convertCurrencySymbol?: string | null
+    accountManagerId?: string | null
+    contacts?: unknown[]
+    addresses?: unknown[]
+}
+
 type ProposalWorkflowPanelProps = {
   opportunity: OpportunitySummary | null
   customers: CustomerSummary[]
@@ -184,7 +238,8 @@ type DashboardData = {
   orders: OrderSummary[]
   subscriptions: SubscriptionSummary[]
   approvals: ApprovalSummary[]
-  employees: EmployeeSummary[]
+    employees: EmployeeSummary[]
+    accounts: AccountSummary[]
 }
 
 const API_BASE_URL = 'http://localhost:5146/api'
@@ -281,7 +336,24 @@ export default function App() {
   const [activeView, setActiveView] = useState(opportunityPathId ? 'opportunity-detail' : 'dashboard')
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(opportunityPathId)
   const [showOpportunityForm, setShowOpportunityForm] = useState(false)
-  const [opportunityForm, setOpportunityForm] = useState({ name: '', customerId: '', assignedEmployeeId: '', estimatedValue: '', status: 'New' })
+    const [opportunityForm, setOpportunityForm] = useState({ name: '', customerId: '', assignedEmployeeId: '', estimatedValue: '', status: 'New' })
+    const [showAccountForm, setShowAccountForm] = useState(false)
+    const [editingAccountId, setEditingAccountId] = useState<string | null>(null)
+
+    const [accountForm, setAccountForm] = useState({
+        accountName: '',
+        autoGenrateAccountId: '',
+        registeredMobileNumber: '',
+        secondMobileNumber: '',
+        website: '',
+        email: '',
+        status: 'Active',
+        employeeCount: '',
+        keyAccount: false,
+        defaultCurrencySymbol: '$',
+        convertCurrencySymbol: '$',
+        accountManagerId: '',
+    })
   const [opportunityMessage, setOpportunityMessage] = useState<string | null>(null)
   const [workflowDetail, setWorkflowDetail] = useState<WorkflowExecutionSummary | null>(null)
   const [selectedOpportunity, setSelectedOpportunity] = useState<OpportunitySummary | null>(null)
@@ -295,7 +367,8 @@ export default function App() {
   const [correctionReason, setCorrectionReason] = useState('')
   const [dataVersion, setDataVersion] = useState(0)
   const [data, setData] = useState<DashboardData>({
-    playbooks: [],
+      playbooks: [],
+      accounts: [],
     customers: [],
     opportunities: [],
     proposals: [],
@@ -310,7 +383,8 @@ export default function App() {
   const [payloadText, setPayloadText] = useState('{"decision":"Approved"}')
   const [executionId, setExecutionId] = useState('')
   const [decision, setDecision] = useState('Approved')
-  const [actionMessage, setActionMessage] = useState<string | null>(null)
+    const [actionMessage, setActionMessage] = useState<string | null>(null)
+    const [accountMessage, setAccountMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -322,29 +396,31 @@ export default function App() {
         setLoading(true)
         setError(null)
 
-        const [playbooksRes, customersRes, opportunitiesRes, proposalsRes, ordersRes, subscriptionsRes, employeesRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/workflows/playbooks`),
-          fetch(`${API_BASE_URL}/crm/customers`),
-          fetch(`${API_BASE_URL}/crm/opportunities`),
-          fetch(`${API_BASE_URL}/crm/proposals`),
-          fetch(`${API_BASE_URL}/crm/orders`),
-          fetch(`${API_BASE_URL}/crm/subscriptions`),
-          fetch(`${API_BASE_URL}/crm/employees`),
-        ])
+          const [playbooksRes, customersRes, accountsRes, opportunitiesRes, proposalsRes, ordersRes, subscriptionsRes, employeesRes] = await Promise.all([
+              fetch(`${API_BASE_URL}/workflows/playbooks`),
+              fetch(`${API_BASE_URL}/crm/customers`),
+              fetch(`${API_BASE_URL}/Accounts`),
+              fetch(`${API_BASE_URL}/crm/opportunities`),
+              fetch(`${API_BASE_URL}/crm/proposals`),
+              fetch(`${API_BASE_URL}/crm/orders`),
+              fetch(`${API_BASE_URL}/crm/subscriptions`),
+              fetch(`${API_BASE_URL}/crm/employees`),
+          ])
 
-        if ([playbooksRes, customersRes, opportunitiesRes, proposalsRes, ordersRes, subscriptionsRes, employeesRes].some((res) => !res.ok)) {
-          throw new Error('Unable to load the dashboard data from the API.')
-        }
+          if ([playbooksRes, customersRes, accountsRes, opportunitiesRes, proposalsRes, ordersRes, subscriptionsRes, employeesRes].some((res) => !res.ok)) {
+              throw new Error('Unable to load the dashboard data from the API.')
+          }
 
-        const [playbooks, customers, opportunities, proposals, orders, subscriptions, employees] = await Promise.all([
-          playbooksRes.json() as Promise<PlayBookSummary[]>,
-          customersRes.json() as Promise<CustomerSummary[]>,
-          opportunitiesRes.json() as Promise<OpportunitySummary[]>,
-          proposalsRes.json() as Promise<ProposalSummary[]>,
-          ordersRes.json() as Promise<OrderSummary[]>,
-          subscriptionsRes.json() as Promise<SubscriptionSummary[]>,
-          employeesRes.json() as Promise<EmployeeSummary[]>,
-        ])
+          const [playbooks, customers, accounts, opportunities, proposals, orders, subscriptions, employees] = await Promise.all([
+              playbooksRes.json() as Promise<PlayBookSummary[]>,
+              customersRes.json() as Promise<CustomerSummary[]>,
+              accountsRes.json() as Promise<AccountSummary[]>,
+              opportunitiesRes.json() as Promise<OpportunitySummary[]>,
+              proposalsRes.json() as Promise<ProposalSummary[]>,
+              ordersRes.json() as Promise<OrderSummary[]>,
+              subscriptionsRes.json() as Promise<SubscriptionSummary[]>,
+              employeesRes.json() as Promise<EmployeeSummary[]>,
+          ])
 
         const approvals = (await Promise.all(proposals.map(async (proposal) => {
           const response = await fetch(`${API_BASE_URL}/approvals/proposals/${proposal.id}`)
@@ -353,16 +429,17 @@ export default function App() {
 
         if (!isActive) return
 
-        setData({
-          playbooks,
-          customers,
-          opportunities,
-          proposals,
-          orders,
-          subscriptions,
-          approvals,
-          employees,
-        })
+          setData({
+              playbooks,
+              customers,
+              accounts,
+              opportunities,
+              proposals,
+              orders,
+              subscriptions,
+              approvals,
+              employees,
+          })
 
         if (!selectedPlayBookId && playbooks.length > 0) {
           setSelectedPlayBookId(playbooks[0].id)
@@ -457,6 +534,197 @@ export default function App() {
       setOpportunityMessage(createError instanceof Error ? createError.message : 'Unable to create Opportunity.')
     }
   }
+
+    const createAccount = async () => {
+        if (!accountForm.accountName.trim()) {
+            setAccountMessage('Account name is required.')
+            return
+        }
+
+        try {
+            setAccountMessage(null)
+
+            const response = await fetch(`${API_BASE_URL}/Accounts`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    accountName: accountForm.accountName.trim(),
+                    autoGenrateAccountId:
+                        accountForm.autoGenrateAccountId.trim() || null,
+                    registeredMobileNumber:
+                        accountForm.registeredMobileNumber.trim() || null,
+                    secondMobileNumber:
+                        accountForm.secondMobileNumber.trim() || null,
+                    website: accountForm.website.trim() || null,
+                    email: accountForm.email.trim() || null,
+                    status: accountForm.status,
+                    employeeCount: accountForm.employeeCount
+                        ? Number(accountForm.employeeCount)
+                        : null,
+                    keyAccount: accountForm.keyAccount,
+                    defaultCurrencySymbol:
+                        accountForm.defaultCurrencySymbol.trim() || null,
+                    convertCurrencySymbol:
+                        accountForm.convertCurrencySymbol.trim() || null,
+                    accountManagerId:
+                        accountForm.accountManagerId.trim() || null,
+                }),
+            })
+
+            const responseText = await response.text()
+
+            let result: AccountSummary
+
+            try {
+                result = JSON.parse(responseText) as AccountSummary
+            } catch {
+                throw new Error(
+                    responseText || 'Unable to create Account.'
+                )
+            }
+
+            if (!response.ok) {
+                throw new Error(
+                    (result as AccountSummary & { title?: string }).title ??
+                    'Unable to create Account.'
+                )
+            }
+
+            setAccountMessage('Account created successfully.')
+            setShowAccountForm(false)
+
+            setAccountForm({
+                accountName: '',
+                autoGenrateAccountId: '',
+                registeredMobileNumber: '',
+                secondMobileNumber: '',
+                website: '',
+                email: '',
+                status: 'Active',
+                employeeCount: '',
+                keyAccount: false,
+                defaultCurrencySymbol: '$',
+                convertCurrencySymbol: '$',
+                accountManagerId: '',
+            })
+
+            setDataVersion((version) => version + 1)
+        } catch (createError) {
+            setAccountMessage(
+                createError instanceof Error
+                    ? createError.message
+                    : 'Unable to create Account.'
+            )
+        }
+    }
+
+    const updateAccount = async () => {
+        if (!editingAccountId) {
+            return
+        }
+
+        if (!accountForm.accountName.trim()) {
+            setAccountMessage('Account name is required.')
+            return
+        }
+
+        try {
+            setAccountMessage(null)
+
+            const response = await fetch(
+                `${API_BASE_URL}/Accounts/${editingAccountId}`,
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        accountName: accountForm.accountName.trim(),
+                        autoGenrateAccountId:
+                            accountForm.autoGenrateAccountId.trim() || null,
+                        registeredMobileNumber:
+                            accountForm.registeredMobileNumber.trim() || null,
+                        secondMobileNumber:
+                            accountForm.secondMobileNumber.trim() || null,
+                        website: accountForm.website.trim() || null,
+                        email: accountForm.email.trim() || null,
+                        status: accountForm.status,
+                        employeeCount: accountForm.employeeCount
+                            ? Number(accountForm.employeeCount)
+                            : null,
+                        keyAccount: accountForm.keyAccount,
+                        defaultCurrencySymbol:
+                            accountForm.defaultCurrencySymbol.trim() || null,
+                        convertCurrencySymbol:
+                            accountForm.convertCurrencySymbol.trim() || null,
+                        accountManagerId:
+                            accountForm.accountManagerId.trim() || null,
+                    }),
+                }
+            )
+
+            if (!response.ok) {
+                const responseText = await response.text()
+
+                throw new Error(
+                    responseText || 'Unable to update Account.'
+                )
+            }
+
+            setAccountMessage('Account updated successfully.')
+            setShowAccountForm(false)
+            setEditingAccountId(null)
+
+            setDataVersion((version) => version + 1)
+        } catch (updateError) {
+            setAccountMessage(
+                updateError instanceof Error
+                    ? updateError.message
+                    : 'Unable to update Account.'
+            )
+        }
+    }
+
+    const deleteAccount = async (accountId: string) => {
+        const confirmed = window.confirm(
+            'Are you sure you want to delete this account?'
+        )
+
+        if (!confirmed) {
+            return
+        }
+
+        try {
+            setAccountMessage(null)
+
+            const response = await fetch(
+                `${API_BASE_URL}/Accounts/${accountId}`,
+                {
+                    method: 'DELETE',
+                }
+            )
+
+            if (!response.ok) {
+                const responseText = await response.text()
+
+                throw new Error(
+                    responseText || 'Unable to delete Account.'
+                )
+            }
+
+            setAccountMessage('Account deleted successfully.')
+
+            setDataVersion((version) => version + 1)
+        } catch (deleteError) {
+            setAccountMessage(
+                deleteError instanceof Error
+                    ? deleteError.message
+                    : 'Unable to delete Account.'
+            )
+        }
+    }
 
   const startWorkflow = async () => {
     if (!selectedPlayBookId || !entityId.trim()) {
@@ -671,7 +939,364 @@ export default function App() {
   const pendingApprovals = data.approvals.filter((approval) => normalizeEnumValue(approval.status, approvalStatusMap).toLowerCase().includes('pending'))
   const proposalCustomer = (proposal: ProposalSummary) => getCustomerName(proposal.customerId, data.customers)
 
-  const renderWorkspace = () => {
+    const renderWorkspace = () => {
+        if (activeView === 'accounts') {
+            return (
+                <section className="workspace-stack">
+                    <article className="panel workspace-panel">
+                        <div className="panel-header">
+                            <div>
+                                <p className="eyebrow">Account Management</p>
+                                <h3>Accounts</h3>
+                            </div>
+
+                            <div className="form-actions">
+                                <span className="pill neutral">
+                                    {data.accounts.length} records
+                                </span>
+
+                                <button
+                                    type="button"
+                                    className="primary-btn compact"
+                                    onClick={() => {
+                                        setShowAccountForm(true)
+                                        setAccountMessage(null)
+                                    }}
+                                >
+                                    + New Account
+                                </button>
+                            </div>
+                        </div>
+
+                        {showAccountForm ? (
+                            <div className="opportunity-form">
+                                <label className="builder-field">
+                                    <span>Account name *</span>
+                                    <input
+                                        value={accountForm.accountName}
+                                        onChange={(event) =>
+                                            setAccountForm({
+                                                ...accountForm,
+                                                accountName: event.target.value,
+                                            })
+                                        }
+                                        placeholder="e.g. ABC Technologies"
+                                    />
+                                </label>
+
+                                <label className="builder-field">
+                                    <span>Account ID</span>
+                                    <input
+                                        value={accountForm.autoGenrateAccountId}
+                                        onChange={(event) =>
+                                            setAccountForm({
+                                                ...accountForm,
+                                                autoGenrateAccountId: event.target.value,
+                                            })
+                                        }
+                                        placeholder="e.g. ACC-001"
+                                    />
+                                </label>
+
+                                <label className="builder-field">
+                                    <span>Registered mobile</span>
+                                    <input
+                                        value={accountForm.registeredMobileNumber}
+                                        onChange={(event) =>
+                                            setAccountForm({
+                                                ...accountForm,
+                                                registeredMobileNumber: event.target.value,
+                                            })
+                                        }
+                                        placeholder="9876543210"
+                                    />
+                                </label>
+
+                                <label className="builder-field">
+                                    <span>Second mobile</span>
+                                    <input
+                                        value={accountForm.secondMobileNumber}
+                                        onChange={(event) =>
+                                            setAccountForm({
+                                                ...accountForm,
+                                                secondMobileNumber: event.target.value,
+                                            })
+                                        }
+                                    />
+                                </label>
+
+                                <label className="builder-field">
+                                    <span>Email</span>
+                                    <input
+                                        type="email"
+                                        value={accountForm.email}
+                                        onChange={(event) =>
+                                            setAccountForm({
+                                                ...accountForm,
+                                                email: event.target.value,
+                                            })
+                                        }
+                                        placeholder="contact@company.com"
+                                    />
+                                </label>
+
+                                <label className="builder-field">
+                                    <span>Website</span>
+                                    <input
+                                        value={accountForm.website}
+                                        onChange={(event) =>
+                                            setAccountForm({
+                                                ...accountForm,
+                                                website: event.target.value,
+                                            })
+                                        }
+                                        placeholder="https://example.com"
+                                    />
+                                </label>
+
+                                <label className="builder-field">
+                                    <span>Employee count</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={accountForm.employeeCount}
+                                        onChange={(event) =>
+                                            setAccountForm({
+                                                ...accountForm,
+                                                employeeCount: event.target.value,
+                                            })
+                                        }
+                                    />
+                                </label>
+
+                                <label className="builder-field">
+                                    <span>Status</span>
+                                    <select
+                                        value={accountForm.status}
+                                        onChange={(event) =>
+                                            setAccountForm({
+                                                ...accountForm,
+                                                status: event.target.value,
+                                            })
+                                        }
+                                    >
+                                        <option value="Active">Active</option>
+                                        <option value="Inactive">Inactive</option>
+                                    </select>
+                                </label>
+
+                                <label className="builder-field">
+                                    <span>Default currency</span>
+                                    <select
+                                        value={accountForm.defaultCurrencySymbol}
+                                        onChange={(event) =>
+                                            setAccountForm({
+                                                ...accountForm,
+                                                defaultCurrencySymbol: event.target.value,
+                                            })
+                                        }
+                                    >
+                                        {currencyOptions.map((currency) => (
+                                            <option key={currency.code} value={currency.symbol}>
+                                                {currency.code} - {currency.name} ({currency.symbol})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+
+                                <label className="builder-field">
+                                    <span>Convert currency</span>
+                                    <select
+                                        value={accountForm.convertCurrencySymbol}
+                                        onChange={(event) =>
+                                            setAccountForm({
+                                                ...accountForm,
+                                                convertCurrencySymbol: event.target.value,
+                                            })
+                                        }
+                                    >
+                                        {currencyOptions.map((currency) => (
+                                            <option key={currency.code} value={currency.symbol}>
+                                                {currency.code} - {currency.name} ({currency.symbol})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+
+                                <label className="builder-field">
+                                    <span>Account manager ID</span>
+                                    <input
+                                        value={accountForm.accountManagerId}
+                                        onChange={(event) =>
+                                            setAccountForm({
+                                                ...accountForm,
+                                                accountManagerId: event.target.value,
+                                            })
+                                        }
+                                    />
+                                </label>
+
+                                <label className="builder-field">
+                                    <span>Key account</span>
+                                    <select
+                                        value={accountForm.keyAccount ? 'true' : 'false'}
+                                        onChange={(event) =>
+                                            setAccountForm({
+                                                ...accountForm,
+                                                keyAccount: event.target.value === 'true',
+                                            })
+                                        }
+                                    >
+                                        <option value="false">No</option>
+                                        <option value="true">Yes</option>
+                                    </select>
+                                </label>
+
+                                <div className="form-actions">
+                                    <button
+                                        type="button"
+                                        className="action-btn"
+                                        onClick={() => {
+                                            setShowAccountForm(false)
+                                            setAccountMessage(null)
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="primary-btn compact"
+                                        onClick={() =>
+                                            void (editingAccountId
+                                                ? updateAccount()
+                                                : createAccount())
+                                        }
+                                    >
+                                        {editingAccountId ? 'Update Account' : 'Create Account'}
+                                    </button>
+                                </div>
+
+                                {accountMessage ? (
+                                    <p className="form-message">
+                                        {accountMessage}
+                                    </p>
+                                ) : null}
+                            </div>
+                        ) : null}
+
+                        <div className="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Account</th>
+                                        <th>Account ID</th>
+                                        <th>Email</th>
+                                        <th>Mobile</th>
+                                        <th>Employees</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    {data.accounts.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="empty-state">
+                                                No accounts available.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        data.accounts.map((account) => (
+                                            <tr key={account.accountId}>
+                                                <td>
+                                                    <strong>
+                                                        {account.accountName ?? 'Unnamed Account'}
+                                                    </strong>
+                                                </td>
+
+                                                <td>
+                                                    {account.autoGenrateAccountId ??
+                                                        account.accountId.slice(0, 8)}
+                                                </td>
+
+                                                <td>
+                                                    {account.email ?? '—'}
+                                                </td>
+
+                                                <td>
+                                                    {account.registeredMobileNumber ?? '—'}
+                                                </td>
+
+                                                <td>
+                                                    {account.employeeCount ?? '—'}
+                                                </td>
+
+                                                <td>
+                                                    <span
+                                                        className={`status ${getStatusClass(
+                                                            account.status ?? 'Unknown'
+                                                        )}`}
+                                                    >
+                                                        {formatValue(account.status ?? 'Unknown')}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <div className="form-actions">
+                                                        <button
+                                                            type="button"
+                                                            className="action-btn"
+                                                            onClick={() => {
+                                                                setEditingAccountId(account.accountId)
+
+                                                                setAccountForm({
+                                                                    accountName: account.accountName ?? '',
+                                                                    autoGenrateAccountId:
+                                                                        account.autoGenrateAccountId ?? '',
+                                                                    registeredMobileNumber:
+                                                                        account.registeredMobileNumber ?? '',
+                                                                    secondMobileNumber:
+                                                                        account.secondMobileNumber ?? '',
+                                                                    website: account.website ?? '',
+                                                                    email: account.email ?? '',
+                                                                    status: account.status ?? 'Active',
+                                                                    employeeCount:
+                                                                        account.employeeCount?.toString() ?? '',
+                                                                    keyAccount: account.keyAccount,
+                                                                    defaultCurrencySymbol:
+                                                                        account.defaultCurrencySymbol ?? '$',
+                                                                    convertCurrencySymbol:
+                                                                        account.convertCurrencySymbol ?? '$',
+                                                                    accountManagerId:
+                                                                        account.accountManagerId ?? '',
+                                                                })
+
+                                                                setAccountMessage(null)
+                                                                setShowAccountForm(true)
+                                                            }}
+                                                        >
+                                                            Edit
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            className="action-btn"
+                                                            onClick={() => void deleteAccount(account.accountId)}
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                </section>
+            )
+        }
     if (activeView === 'proposals') {
       return (
         <section className="workspace-grid">
@@ -788,7 +1413,12 @@ export default function App() {
           <button className={`nav-item ${activeView === 'crm' ? 'active' : ''}`} type="button" onClick={() => setActiveView('crm')}>
             <BriefcaseBusiness size={16} />
             CRM
-          </button>
+                  </button>
+                  <button className={`nav-item ${activeView === 'accounts' ? 'active' : ''}`} type="button" onClick={() => setActiveView('accounts')}>
+                      <BriefcaseBusiness size={16} />
+                      Accounts
+                  </button>
+
           <button className={`nav-item ${activeView === 'approvals' ? 'active' : ''}`} type="button" onClick={() => setActiveView('approvals')}>
             <ShieldCheck size={16} />
             Approvals
@@ -925,7 +1555,7 @@ export default function App() {
                 <tbody>
                   {workflowRows.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="empty-state">{loading ? 'Loading workflow data...' : 'No workflows available.'}</td>
+                         <td colSpan={7} className="empty-state">{loading ? 'Loading workflow data...' : 'No workflows available.'}</td>
                     </tr>
                   ) : (
                     workflowRows.map((row) => (
